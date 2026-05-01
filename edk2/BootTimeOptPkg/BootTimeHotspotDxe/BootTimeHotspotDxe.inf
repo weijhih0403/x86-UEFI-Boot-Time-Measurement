@@ -1,0 +1,46 @@
+## @file
+#  Collect and persist boot hotspots.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = BootTimeHotspotDxe
+  FILE_GUID                      = A1B2C3D4-E5F6-4789-A012-3456789ABCDE
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 0.1
+  ENTRY_POINT                    = BootTimeHotspotDxeEntryPoint
+
+[Sources]
+  BootTimeHotspotDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  BootTimeOptPkg/BootTimeOptPkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  UefiLib
+  TimerLib
+  BaseMemoryLib
+  BaseLib
+  DebugLib
+  MemoryAllocationLib
+  StackCheckLib
+  PcdLib
+
+[Guids]
+  gEfiEventReadyToBootGuid
+  gBootTimeOptPkgVariableGuid
+  gPerformanceExProtocolGuid
+
+[Pcd]
+  gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnableHotspot
+
+[Depex]
+  TRUE

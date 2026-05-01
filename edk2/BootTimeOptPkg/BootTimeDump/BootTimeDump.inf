@@ -1,0 +1,39 @@
+## @file
+#  UEFI application to dump boot-time metrics.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = BootTimeDump
+  FILE_GUID                      = 7C8D9E10-B2A3-4F5E-9C8D-1A2B3C4D5E6F
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  ENTRY_POINT                    = UefiMain
+
+[Sources]
+  BootTimeDump.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  BootTimeOptPkg/BootTimeOptPkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiLib
+  UefiRuntimeServicesTableLib
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  DebugLib
+  PcdLib
+
+[Guids]
+  gBootTimeOptPkgVariableGuid
+
+[Pcd]
+  gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnablePolicy
+  gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnableHotspot

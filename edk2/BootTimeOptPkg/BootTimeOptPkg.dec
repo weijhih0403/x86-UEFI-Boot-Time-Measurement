@@ -1,0 +1,19 @@
+[Defines]
+  DEC_SPECIFICATION              = 0x0001001A
+  PACKAGE_NAME                   = BootTimeOptPkg
+  PACKAGE_GUID                   = 6B0370D9-9E61-4CA4-9D57-8560B04C1271
+  PACKAGE_VERSION                = 0.1
+
+[Includes]
+  Include
+
+[LibraryClasses]
+  BootTimeOptPolicyLib|Include/Library/BootTimeOptPolicyLib.h
+
+[Guids]
+  gBootTimeOptPkgVariableGuid    = { 0x8a245d0d, 0x4d47, 0x4f6f, { 0x94, 0x7f, 0x38, 0x65, 0x0e, 0xc8, 0x6a, 0x20 } }
+  gBootTimeOptPkgTokenSpaceGuid  = { 0x2da8769a, 0x5a3c, 0x4f4f, { 0xa6, 0x58, 0x16, 0xab, 0x1d, 0x1b, 0x8d, 0x31 } }
+
+[PcdsFixedAtBuild]
+  gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnablePolicy|FALSE|BOOLEAN|0x00000001
+  gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnableHotspot|TRUE|BOOLEAN|0x00000002

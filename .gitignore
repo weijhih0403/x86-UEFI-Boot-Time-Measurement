@@ -1,0 +1,27 @@
+# Build artifacts
+edk2/Build/
+edk2/Conf/
+edk2/QemuFs/
+edk2/BootTimeOptPkg/results/
+
+# Firmware and binaries
+*.fd
+*.efi
+*.rom
+*.bin
+*.obj
+*.pdb
+*.map
+
+# Logs and temp
+*.log
+*.tmp
+*.cache
+*.pyc
+__pycache__/
+
+# IDE / OS
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,33 @@
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = BootTimeProfilerDxe
+  FILE_GUID                      = 9F6B0965-DBD8-4A6D-B154-A5A055D6A785
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 0.1
+  ENTRY_POINT                    = BootTimeProfilerDxeEntryPoint
+
+[Sources]
+  BootTimeProfilerDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  BootTimeOptPkg/BootTimeOptPkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  DebugLib
+  TimerLib
+  BaseMemoryLib
+
+[Guids]
+  gEfiEndOfDxeEventGroupGuid
+  gEfiEventReadyToBootGuid
+  gEfiEventExitBootServicesGuid
+  gEfiGlobalVariableGuid
+  gBootTimeOptPkgVariableGuid
+
+[Depex]
+  TRUE
