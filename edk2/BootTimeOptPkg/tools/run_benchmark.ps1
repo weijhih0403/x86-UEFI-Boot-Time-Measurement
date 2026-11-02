@@ -197,7 +197,16 @@ try {
       "-drive","if=pflash,format=raw,file=$runVars",
       "-drive","if=virtio,format=raw,file=fat:rw:$qemuFsForQemu"
     )
-    $p = Start-Process -FilePath $qemuExe -ArgumentList $args -PassThru -NoNewWindow -RedirectStandardOutput $runSerial -RedirectStandardError $runErr
+    # Start-Process does not quote array arguments, so paths that contain spaces
+    # are split before QEMU sees them.
+    $quotedArgs = foreach ($arg in $args) {
+      if ($arg -match '[\s"]') {
+        '"' + ($arg -replace '"', '\"') + '"'
+      } else {
+        $arg
+      }
+    }
+    $p = Start-Process -FilePath $qemuExe -ArgumentList ($quotedArgs -join ' ') -PassThru -NoNewWindow -RedirectStandardOutput $runSerial -RedirectStandardError $runErr
 
     $deadline = (Get-Date).AddSeconds($BootTimeoutSec)
     $ok = $false
