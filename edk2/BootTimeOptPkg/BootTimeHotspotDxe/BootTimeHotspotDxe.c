@@ -1,6 +1,6 @@
 /** @file
-  Collects PerformanceEx gauge data and persists Top-N hotspots.
-  Falls back to phase timing when gauge data is unavailable.
+  Collects PerformanceEx gauge data and persists the Top-N hotspots.
+  When gauge data is unavailable, records the DXE phases that actually ran.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
@@ -29,8 +29,11 @@ typedef struct {
   CHAR8   Token[DXE_PERFORMANCE_STRING_SIZE];
 } HOTSPOT_CANDIDATE;
 
-STATIC EFI_EVENT  mReadyToBootEvent = NULL;
+STATIC EFI_EVENT  mEndOfDxeEvent     = NULL;
+STATIC EFI_EVENT  mReadyToBootEvent  = NULL;
 STATIC UINT64     mEntryTick         = 0;
+STATIC UINT64     mEndOfDxeTick      = 0;
+STATIC UINT64     mReadyToBootTick   = 0;
 
 STATIC
 UINT64
@@ -48,23 +51,81 @@ GetDurationNsSafe (
 
 STATIC
 VOID
+AddPhase (
+  IN OUT BOOT_TIME_HOTSPOT_LOG  *Log,
+  IN CONST CHAR8                *Module,
+  IN CONST CHAR8                *Token,
+  IN UINT64                     DurationNs
+  )
+{
+  UINTN  Index;
+
+  if (Log->Count >= BOOT_TIME_HOTSPOT_MAX_RANK) {
+    return;
+  }
+
+  Index = Log->Count;
+  Log->Hotspot[Index].Rank       = (UINT32)(Index + 1);
+  Log->Hotspot[Index].DurationNs = DurationNs;
+  AsciiStrCpyS (Log->Hotspot[Index].Module, sizeof (Log->Hotspot[Index].Module), Module);
+  AsciiStrCpyS (Log->Hotspot[Index].Token, sizeof (Log->Hotspot[Index].Token), Token);
+  Log->Count++;
+}
+
+STATIC
+VOID
+SortPhaseDesc (
+  IN OUT BOOT_TIME_HOTSPOT_LOG  *Log
+  )
+{
+  UINTN  Index;
+  UINTN  Other;
+
+  for (Index = 0; Index < Log->Count; Index++) {
+    for (Other = Index + 1; Other < Log->Count; Other++) {
+      if (Log->Hotspot[Other].DurationNs > Log->Hotspot[Index].DurationNs) {
+        BOOT_TIME_HOTSPOT_ENTRY  Swap;
+        CopyMem (&Swap, &Log->Hotspot[Index], sizeof (Swap));
+        CopyMem (&Log->Hotspot[Index], &Log->Hotspot[Other], sizeof (Swap));
+        CopyMem (&Log->Hotspot[Other], &Swap, sizeof (Swap));
+      }
+    }
+  }
+
+  for (Index = 0; Index < Log->Count; Index++) {
+    Log->Hotspot[Index].Rank = (UINT32)(Index + 1);
+  }
+}
+
+STATIC
+VOID
 FillPhaseFallback (
   OUT BOOT_TIME_HOTSPOT_LOG  *Log
   )
 {
-  UINT64  NowTick;
+  UINT64  ReadyTick;
 
-  NowTick = GetPerformanceCounter ();
+  ReadyTick = (mReadyToBootTick != 0) ? mReadyToBootTick : GetPerformanceCounter ();
   ZeroMem (Log, sizeof (*Log));
   Log->Signature       = BOOT_TIME_HOTSPOT_SIGNATURE;
   Log->Version         = BOOT_TIME_HOTSPOT_VERSION;
   Log->Source          = BOOT_TIME_HOTSPOT_SOURCE_PHASE_FALLBACK;
-  Log->Count           = 1;
   Log->GaugeEntryCount = 0;
-  Log->Hotspot[0].Rank       = 1;
-  Log->Hotspot[0].DurationNs = GetDurationNsSafe (mEntryTick, NowTick);
-  AsciiStrCpyS (Log->Hotspot[0].Module, sizeof (Log->Hotspot[0].Module), "PHASE");
-  AsciiStrCpyS (Log->Hotspot[0].Token, sizeof (Log->Hotspot[0].Token), "Entry->ReadyToBoot");
+
+  if (mEndOfDxeTick != 0) {
+    AddPhase (Log, "PHASE", "Entry->EndOfDxe", GetDurationNsSafe (mEntryTick, mEndOfDxeTick));
+    AddPhase (Log, "PHASE", "EndOfDxe->ReadyToBoot", GetDurationNsSafe (mEndOfDxeTick, ReadyTick));
+  } else {
+    AddPhase (Log, "NOT_REACHED", "Entry->EndOfDxe", 0);
+    AddPhase (Log, "PHASE", "Entry->ReadyToBoot", GetDurationNsSafe (mEntryTick, ReadyTick));
+  }
+
+  //
+  // This log is written at ReadyToBoot. ExitBootServices has not run yet,
+  // so record that explicitly instead of inventing a duration.
+  //
+  AddPhase (Log, "NOT_REACHED", "ExitBootServices", 0);
+  SortPhaseDesc (Log);
 }
 
 STATIC
@@ -122,16 +183,16 @@ SortByDurationDesc (
   IN UINTN                  Count
   )
 {
-  UINTN  I;
-  UINTN  J;
+  UINTN  Index;
+  UINTN  Other;
 
-  for (I = 0; I < Count; I++) {
-    for (J = I + 1; J < Count; J++) {
-      if (Pool[J].DurationNs > Pool[I].DurationNs) {
-        HOTSPOT_CANDIDATE  Tmp;
-        CopyMem (&Tmp, &Pool[I], sizeof (Tmp));
-        CopyMem (&Pool[I], &Pool[J], sizeof (Tmp));
-        CopyMem (&Pool[J], &Tmp, sizeof (Tmp));
+  for (Index = 0; Index < Count; Index++) {
+    for (Other = Index + 1; Other < Count; Other++) {
+      if (Pool[Other].DurationNs > Pool[Index].DurationNs) {
+        HOTSPOT_CANDIDATE  Swap;
+        CopyMem (&Swap, &Pool[Index], sizeof (Swap));
+        CopyMem (&Pool[Index], &Pool[Other], sizeof (Swap));
+        CopyMem (&Pool[Other], &Swap, sizeof (Swap));
       }
     }
   }
@@ -148,7 +209,7 @@ FillFromGaugeOrFallback (
   HOTSPOT_CANDIDATE        *Pool;
   UINTN                    Count;
   UINTN                    RankCount;
-  UINTN                    Idx;
+  UINTN                    Index;
 
   Status = gBS->LocateProtocol (
                   &gPerformanceExProtocolGuid,
@@ -181,13 +242,13 @@ FillFromGaugeOrFallback (
   Log->Source          = BOOT_TIME_HOTSPOT_SOURCE_GAUGE;
   Log->GaugeEntryCount = (UINT32)Count;
 
-  RankCount = (Count < BOOT_TIME_HOTSPOT_MAX_RANK) ? Count : BOOT_TIME_HOTSPOT_MAX_RANK;
+  RankCount  = (Count < BOOT_TIME_HOTSPOT_MAX_RANK) ? Count : BOOT_TIME_HOTSPOT_MAX_RANK;
   Log->Count = (UINT8)RankCount;
-  for (Idx = 0; Idx < RankCount; Idx++) {
-    Log->Hotspot[Idx].Rank       = (UINT32)(Idx + 1);
-    Log->Hotspot[Idx].DurationNs = Pool[Idx].DurationNs;
-    CopyMem (Log->Hotspot[Idx].Module, Pool[Idx].Module, sizeof (Pool[Idx].Module));
-    CopyMem (Log->Hotspot[Idx].Token, Pool[Idx].Token, sizeof (Pool[Idx].Token));
+  for (Index = 0; Index < RankCount; Index++) {
+    Log->Hotspot[Index].Rank       = (UINT32)(Index + 1);
+    Log->Hotspot[Index].DurationNs = Pool[Index].DurationNs;
+    CopyMem (Log->Hotspot[Index].Module, Pool[Index].Module, sizeof (Pool[Index].Module));
+    CopyMem (Log->Hotspot[Index].Token, Pool[Index].Token, sizeof (Pool[Index].Token));
   }
 
   FreePool (Pool);
@@ -204,8 +265,9 @@ EnsureSummaryFallback (
   UINTN              Size;
   UINT32             Attr;
   UINT16             BootCurrent;
+  UINT64             NowTick;
 
-  Size = sizeof (Summary);
+  Size   = sizeof (Summary);
   Status = gRT->GetVariable (
                   BOOT_TIME_SUMMARY_VAR_NAME,
                   &gBootTimeOptPkgVariableGuid,
@@ -217,19 +279,22 @@ EnsureSummaryFallback (
     return;
   }
 
+  NowTick = GetPerformanceCounter ();
   ZeroMem (&Summary, sizeof (Summary));
-  Summary.Signature              = BOOT_TIME_SUMMARY_SIGNATURE;
-  Summary.Version                = BOOT_TIME_SUMMARY_VERSION;
-  Summary.EntryTimeNs            = 0;
-  Summary.EndOfDxeTimeNs         = 0;
-  Summary.ReadyToBootTimeNs      = GetDurationNsSafe (mEntryTick, GetPerformanceCounter ());
-  Summary.ExitBootServicesTimeNs = Summary.ReadyToBootTimeNs;
-  Summary.DeltaEntryToEndOfDxeNs = 0;
-  Summary.DeltaEndOfDxeToReadyToBootNs = Summary.ReadyToBootTimeNs;
-  Summary.DeltaReadyToBootToExitBootServicesNs = 0;
-  Summary.DeltaEntryToExitBootServicesNs = Summary.ExitBootServicesTimeNs;
+  Summary.Signature = BOOT_TIME_SUMMARY_SIGNATURE;
+  Summary.Version   = BOOT_TIME_SUMMARY_VERSION;
+  Summary.Reserved0 = BOOT_TIME_PHASE_READY_TO_BOOT;
+  if (mEndOfDxeTick != 0) {
+    Summary.Reserved0 |= BOOT_TIME_PHASE_END_OF_DXE;
+  }
 
-  Size = sizeof (BootCurrent);
+  Summary.ReadyToBootTimeNs            = GetDurationNsSafe (mEntryTick, NowTick);
+  Summary.DeltaEntryToEndOfDxeNs       = GetDurationNsSafe (mEntryTick, mEndOfDxeTick);
+  Summary.DeltaEndOfDxeToReadyToBootNs = (mEndOfDxeTick != 0) ?
+                                         GetDurationNsSafe (mEndOfDxeTick, NowTick) :
+                                         Summary.ReadyToBootTimeNs;
+
+  Size   = sizeof (BootCurrent);
   Status = gRT->GetVariable (
                   L"BootCurrent",
                   &gEfiGlobalVariableGuid,
@@ -256,6 +321,17 @@ EnsureSummaryFallback (
 STATIC
 VOID
 EFIAPI
+OnEndOfDxe (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  mEndOfDxeTick = GetPerformanceCounter ();
+}
+
+STATIC
+VOID
+EFIAPI
 OnReadyToBoot (
   IN EFI_EVENT  Event,
   IN VOID       *Context
@@ -268,6 +344,7 @@ OnReadyToBoot (
     return;
   }
 
+  mReadyToBootTick = GetPerformanceCounter ();
   EnsureSummaryFallback ();
   FillFromGaugeOrFallback (&Log);
   Status = gRT->SetVariable (
@@ -292,6 +369,18 @@ BootTimeHotspotDxeEntryPoint (
   EFI_STATUS  Status;
 
   mEntryTick = GetPerformanceCounter ();
+  Status     = gBS->CreateEventEx (
+                      EVT_NOTIFY_SIGNAL,
+                      TPL_CALLBACK,
+                      OnEndOfDxe,
+                      NULL,
+                      &gEfiEndOfDxeEventGroupGuid,
+                      &mEndOfDxeEvent
+                      );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
   Status = gBS->CreateEventEx (
                   EVT_NOTIFY_SIGNAL,
                   TPL_CALLBACK,

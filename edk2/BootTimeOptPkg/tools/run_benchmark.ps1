@@ -87,6 +87,10 @@ function Parse-RunCsv {
     EndOfDxeToReadyToBootNs = 0
     ReadyToBootToExitBootServicesNs = 0
     EntryToExitBootServicesNs = 0
+    EndOfDxeReached = 0
+    ReadyToBootReached = 0
+    ExitBootServicesReached = 0
+    PolicyEnabled = 0
     LastBootCurrent = 0
     HotspotRank1Source = ""
     HotspotRank1DurationNs = 0
@@ -238,6 +242,10 @@ try {
       EndOfDxeToReadyToBootNs=$r.EndOfDxeToReadyToBootNs
       ReadyToBootToExitBootServicesNs=$r.ReadyToBootToExitBootServicesNs
       EntryToExitBootServicesNs=$r.EntryToExitBootServicesNs
+      EndOfDxeReached=$r.EndOfDxeReached
+      ReadyToBootReached=$r.ReadyToBootReached
+      ExitBootServicesReached=$r.ExitBootServicesReached
+      PolicyEnabled=$r.PolicyEnabled
       LastBootCurrent=$r.LastBootCurrent
       HotspotRank1Source=$r.HotspotRank1Source
       HotspotRank1DurationNs=$r.HotspotRank1DurationNs

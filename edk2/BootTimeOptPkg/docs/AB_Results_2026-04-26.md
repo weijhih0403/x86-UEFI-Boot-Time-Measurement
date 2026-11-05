@@ -17,6 +17,7 @@
 
 ## Key Notes
 
-- Best improvement in this run is `EndOfDxeToReadyToBootNs` (+1.18%).
-- `HotspotRank1DurationNs` also improved (+0.60%).
-- `EntryToEndOfDxeNs` regressed (-0.96%), so next optimization should target early DXE path.
+- These two builds differed only by `PcdBootTimeOptEnablePolicy`. No boot-path behavior was gated on that PCD, so the table is a repeatability check, not evidence of a faster firmware.
+- The largest mean shift, `EndOfDxeToReadyToBootNs` at 1.18%, is smaller than the roughly 7% spread seen across three consecutive runs on the same machine.
+- `ReadyToBootToExitBootServicesNs` and `EntryToExitBootServicesNs` are 0 because `BootTimeDump` returns before `ExitBootServices`.
+- Rank 1 was the single phase `Entry->ReadyToBoot`. `PerformanceLib` was the null instance, so no per-module gauge existed.

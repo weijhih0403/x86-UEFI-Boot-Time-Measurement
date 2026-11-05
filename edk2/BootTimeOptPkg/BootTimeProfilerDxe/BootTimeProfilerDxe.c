@@ -18,6 +18,7 @@ STATIC UINT64     mEntryTick              = 0;
 STATIC UINT64     mEndOfDxeTick           = 0;
 STATIC UINT64     mReadyToBootTick        = 0;
 STATIC UINT64     mExitBootServicesTick   = 0;
+STATIC UINT16     mPhaseMask              = 0;
 
 STATIC
 UINT64
@@ -86,6 +87,7 @@ PersistSummary (
 
   Summary.Signature              = BOOT_TIME_SUMMARY_SIGNATURE;
   Summary.Version                = BOOT_TIME_SUMMARY_VERSION;
+  Summary.Reserved0              = mPhaseMask;
   Summary.EntryTimeNs            = 0;
   Summary.EndOfDxeTimeNs         = GetDeltaNsSafe (mEntryTick, mEndOfDxeTick);
   Summary.ReadyToBootTimeNs      = GetDeltaNsSafe (mEntryTick, mReadyToBootTick);
@@ -161,7 +163,9 @@ OnEndOfDxe (
   )
 {
   mEndOfDxeTick = GetPerformanceCounter ();
+  mPhaseMask   |= BOOT_TIME_PHASE_END_OF_DXE;
   DEBUG ((DEBUG_INFO, "BootTimeProfilerDxe: EndOfDxe at %Lu ns from entry\n", TicksToNanoSeconds (mEndOfDxeTick - mEntryTick)));
+  PersistSummary ();
 }
 
 STATIC
@@ -173,19 +177,14 @@ OnReadyToBoot (
   )
 {
   mReadyToBootTick = GetPerformanceCounter ();
+  mPhaseMask      |= BOOT_TIME_PHASE_READY_TO_BOOT;
   DEBUG ((DEBUG_INFO, "BootTimeProfilerDxe: ReadyToBoot at %Lu ns from entry\n", TicksToNanoSeconds (mReadyToBootTick - mEntryTick)));
 
   //
-  // Fallback for shell-only paths:
-  // ensure summary exists even if ExitBootServices is never signaled.
+  // Leave ExitBootServices at 0 when it has not happened. A later callback
+  // fills it in. Dump can tell "not reached" from a real zero-length phase
+  // by reading the phase mask.
   //
-  if (mEndOfDxeTick == 0) {
-    mEndOfDxeTick = mEntryTick;
-  }
-  if (mExitBootServicesTick == 0) {
-    mExitBootServicesTick = mReadyToBootTick;
-  }
-
   SaveLastSuccessfulBootOption ();
   PersistSummary ();
 }
@@ -199,6 +198,7 @@ OnExitBootServices (
   )
 {
   mExitBootServicesTick = GetPerformanceCounter ();
+  mPhaseMask           |= BOOT_TIME_PHASE_EXIT_BOOT_SERVICES;
 
   DEBUG ((DEBUG_INFO, "BootTimeProfilerDxe: ExitBootServices at %Lu ns from entry\n", TicksToNanoSeconds (mExitBootServicesTick - mEntryTick)));
 
@@ -224,10 +224,11 @@ BootTimeProfilerDxeEntryPoint (
 {
   EFI_STATUS  Status;
 
-  mEntryTick = GetPerformanceCounter ();
-  mEndOfDxeTick = mEntryTick;
-  mReadyToBootTick = mEntryTick;
-  mExitBootServicesTick = mEntryTick;
+  mEntryTick            = GetPerformanceCounter ();
+  mEndOfDxeTick         = 0;
+  mReadyToBootTick      = 0;
+  mExitBootServicesTick = 0;
+  mPhaseMask            = 0;
   DEBUG ((DEBUG_INFO, "BootTimeProfilerDxe: Entry\n"));
 
   //

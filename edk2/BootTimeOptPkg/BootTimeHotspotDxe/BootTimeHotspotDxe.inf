@@ -35,6 +35,7 @@
   PcdLib
 
 [Guids]
+  gEfiEndOfDxeEventGroupGuid
   gEfiEventReadyToBootGuid
   gBootTimeOptPkgVariableGuid
   gPerformanceExProtocolGuid
