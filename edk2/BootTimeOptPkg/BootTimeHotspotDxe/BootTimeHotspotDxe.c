@@ -340,7 +340,13 @@ OnReadyToBoot (
   EFI_STATUS             Status;
   BOOT_TIME_HOTSPOT_LOG  Log;
 
-  if (!FixedPcdGetBool (PcdBootTimeOptEnableHotspot)) {
+  //
+  // Policy is the A/B arm switch and must actually change behavior.
+  // Hotspot is the fine-grained collector enable. Collection runs only when both are TRUE.
+  //
+  if (!FixedPcdGetBool (PcdBootTimeOptEnablePolicy) ||
+      !FixedPcdGetBool (PcdBootTimeOptEnableHotspot))
+  {
     return;
   }
 

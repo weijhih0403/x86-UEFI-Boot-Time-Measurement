@@ -72,6 +72,7 @@ function Extract-CsvLinesFromSerial {
       $clean -match '^summary,[^,]+,[0-9]+$' -or
       $clean -match '^rank,source,duration_ns,module,token$' -or
       $clean -match '^[0-9]+,(gauge|phase),[0-9]+,[^,]*,.+$' -or
+      $clean -match '^hotspot,error,' -or
       $clean -match '^last_successful_bootoption,[0-9]+$'
     ) {
       $csv.Add($clean)
@@ -84,8 +85,10 @@ function Test-RunCsvComplete {
   param([System.Collections.Generic.List[string]]$Lines)
   $hasSummary = ($Lines | Where-Object { $_ -match '^summary,EntryToEndOfDxeNs,[0-9]+$' }).Count -gt 0
   $hasRank1 = ($Lines | Where-Object { $_ -match '^1,(gauge|phase),[0-9]+,[^,]*,.+$' }).Count -gt 0
+  $hasHotspotError = ($Lines | Where-Object { $_ -match '^hotspot,error,' }).Count -gt 0
   $hasLast = ($Lines | Where-Object { $_ -match '^last_successful_bootoption,[0-9]+$' }).Count -gt 0
-  return ($hasSummary -and $hasRank1 -and $hasLast)
+  # Hotspot collection may be build-disabled; Dump then prints hotspot,error instead of ranks.
+  return ($hasSummary -and $hasLast -and ($hasRank1 -or $hasHotspotError))
 }
 
 function Parse-RunCsv {
@@ -99,6 +102,7 @@ function Parse-RunCsv {
     ReadyToBootReached = 0
     ExitBootServicesReached = 0
     PolicyEnabled = 0
+    HotspotEnabled = 0
     LastBootCurrent = 0
     HotspotRank1Source = ""
     HotspotRank1DurationNs = 0
@@ -156,13 +160,18 @@ $outRoot = Join-Path $Edk2Root "BootTimeOptPkg\results\${Mode}-${stamp}"
 $rawDir = Join-Path $outRoot "raw"
 New-Item -Path $rawDir -ItemType Directory -Force | Out-Null
 
+# baseline: Policy=0 Hotspot=0; optimized: Policy=1 Hotspot=1 (both PCDs must agree for collection).
 $policyValue = if ($Mode -eq "optimized") { "TRUE" } else { "FALSE" }
-$pcd = "gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnablePolicy=$policyValue"
+$hotspotValue = $policyValue
+$pcdPolicy = "gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnablePolicy=$policyValue"
+$pcdHotspot = "gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnableHotspot=$hotspotValue"
 $dsc = "OvmfPkg/OvmfPkgX64.dsc"
 
 Write-Host "== BootTimeOpt benchmark runner =="
 Write-Host "Edk2Root : $Edk2Root"
 Write-Host "Mode     : $Mode"
+Write-Host "Policy   : $policyValue"
+Write-Host "Hotspot  : $hotspotValue"
 Write-Host "Runs     : $Runs"
 Write-Host "Output   : $outRoot"
 Write-Host "QemuFs   : $qemuFsForQemu"
@@ -174,7 +183,7 @@ try {
       "call `"$edksetup`"",
       "set VSLANG=1033",
       "set CL=/utf-8",
-      "build -a X64 -t $Toolchain -p $dsc -b $Target --pcd $pcd -n 1"
+      "build -a X64 -t $Toolchain -p $dsc -b $Target --pcd $pcdPolicy --pcd $pcdHotspot -n 1"
     ) -join " && "
     cmd.exe /c $cmd
     if ($LASTEXITCODE -ne 0) { throw "build failed with exit code $LASTEXITCODE" }
@@ -254,6 +263,7 @@ try {
       ReadyToBootReached=$r.ReadyToBootReached
       ExitBootServicesReached=$r.ExitBootServicesReached
       PolicyEnabled=$r.PolicyEnabled
+      HotspotEnabled=$r.HotspotEnabled
       LastBootCurrent=$r.LastBootCurrent
       HotspotRank1Source=$r.HotspotRank1Source
       HotspotRank1DurationNs=$r.HotspotRank1DurationNs

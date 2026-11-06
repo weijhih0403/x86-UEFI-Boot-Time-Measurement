@@ -41,6 +41,7 @@
   gPerformanceExProtocolGuid
 
 [Pcd]
+  gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnablePolicy
   gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnableHotspot
 
 [Depex]

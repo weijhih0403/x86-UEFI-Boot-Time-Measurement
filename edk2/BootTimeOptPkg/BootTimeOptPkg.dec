@@ -12,5 +12,7 @@
   gBootTimeOptPkgTokenSpaceGuid  = { 0x2da8769a, 0x5a3c, 0x4f4f, { 0xa6, 0x58, 0x16, 0xab, 0x1d, 0x1b, 0x8d, 0x31 } }
 
 [PcdsFixedAtBuild]
+  # A/B arm switch. Must be TRUE together with EnableHotspot for ReadyToBoot collection.
   gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnablePolicy|FALSE|BOOLEAN|0x00000001
+  # Fine-grained hotspot collector enable. Collection requires Policy AND Hotspot.
   gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnableHotspot|TRUE|BOOLEAN|0x00000002

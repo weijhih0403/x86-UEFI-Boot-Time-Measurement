@@ -50,6 +50,7 @@ DumpSummary (
     Print (L"summary,ReadyToBootReached,%u\n", (UINT32)((S.Reserved0 & BOOT_TIME_PHASE_READY_TO_BOOT) != 0));
     Print (L"summary,ExitBootServicesReached,%u\n", (UINT32)((S.Reserved0 & BOOT_TIME_PHASE_EXIT_BOOT_SERVICES) != 0));
     Print (L"summary,PolicyEnabled,%u\n", (UINT32)FixedPcdGetBool (PcdBootTimeOptEnablePolicy));
+    Print (L"summary,HotspotEnabled,%u\n", (UINT32)FixedPcdGetBool (PcdBootTimeOptEnableHotspot));
     Print (L"summary,LastBootCurrent,%u\n", (UINT32)S.LastBootCurrent);
   } else {
     Print (L"=== BootTimeSummary ===\n");
@@ -61,6 +62,7 @@ DumpSummary (
     Print (L"ReadyToBoot reached:           %a\n", (S.Reserved0 & BOOT_TIME_PHASE_READY_TO_BOOT) ? "yes" : "no");
     Print (L"ExitBootServices reached:      %a\n", (S.Reserved0 & BOOT_TIME_PHASE_EXIT_BOOT_SERVICES) ? "yes" : "no");
     Print (L"Policy enabled:                %a\n", FixedPcdGetBool (PcdBootTimeOptEnablePolicy) ? "yes" : "no");
+    Print (L"Hotspot enabled:               %a\n", FixedPcdGetBool (PcdBootTimeOptEnableHotspot) ? "yes" : "no");
     Print (L"LastBootCurrent:               Boot%04x\n", S.LastBootCurrent);
   }
 }
