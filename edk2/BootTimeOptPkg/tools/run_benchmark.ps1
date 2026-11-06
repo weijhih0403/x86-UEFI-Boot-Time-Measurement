@@ -71,13 +71,21 @@ function Extract-CsvLinesFromSerial {
       $clean -match '^section,metric,value$' -or
       $clean -match '^summary,[^,]+,[0-9]+$' -or
       $clean -match '^rank,source,duration_ns,module,token$' -or
-      $clean -match '^[0-9]+,(gauge|phase),[0-9]+,.*$' -or
+      $clean -match '^[0-9]+,(gauge|phase),[0-9]+,[^,]*,.+$' -or
       $clean -match '^last_successful_bootoption,[0-9]+$'
     ) {
       $csv.Add($clean)
     }
   }
   return $csv
+}
+
+function Test-RunCsvComplete {
+  param([System.Collections.Generic.List[string]]$Lines)
+  $hasSummary = ($Lines | Where-Object { $_ -match '^summary,EntryToEndOfDxeNs,[0-9]+$' }).Count -gt 0
+  $hasRank1 = ($Lines | Where-Object { $_ -match '^1,(gauge|phase),[0-9]+,[^,]*,.+$' }).Count -gt 0
+  $hasLast = ($Lines | Where-Object { $_ -match '^last_successful_bootoption,[0-9]+$' }).Count -gt 0
+  return ($hasSummary -and $hasRank1 -and $hasLast)
 }
 
 function Parse-RunCsv {
@@ -217,7 +225,7 @@ try {
     while ((Get-Date) -lt $deadline) {
       if (Test-Path $runSerial) {
         $csvLines = Extract-CsvLinesFromSerial -Path $runSerial
-        if ($csvLines.Count -ge 7) {
+        if (Test-RunCsvComplete -Lines $csvLines) {
           $csvLines | Set-Content -Path $runCsv -Encoding ascii
           $ok = $true
           break

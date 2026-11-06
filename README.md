@@ -33,7 +33,7 @@ QEMU 使用 TCG。絕對時間跟著宿主機 CPU 和當下負載變，不同電
 
 ## 2026-04-26 的結果怎麼讀
 
-來源：`edk2/BootTimeOptPkg/docs/AB_Results_2026-04-26.md`
+日期標的是**這次 A/B 實驗當天**，不是文件更新日期。來源：`edk2/BootTimeOptPkg/docs/AB_Results_2026-04-26.md`（對應 `baseline-20260426-235512` 與 `optimized-20260426-235627`）。
 
 | Metric | Baseline Mean (ns) | Optimized Mean (ns) | Delta (ns) | 差異 (%) |
 |---|---:|---:|---:|---:|
@@ -43,11 +43,25 @@ QEMU 使用 TCG。絕對時間跟著宿主機 CPU 和當下負載變，不同電
 | EntryToExitBootServicesNs | 0 | 0 | 0 | 0 |
 | HotspotRank1DurationNs | 842107809.2 | 837054289.9 | -5053519.3 | 0.60 |
 
-這次不能當成「開機變快 1%」：
+數字已對過當日 CSV 的 Mean。`差異 (%)` 以 baseline 為分母；正數表示 optimized 平均較短，負數表示較長。這次不能當成「開機變快 1%」：
 
 - 兩次建置只差政策 PCD 的值，當時沒有對應的開機路徑改動。
 - 同一台電腦連續三次，EndOfDxe 到 ReadyToBoot 的差距約 7%，大於表上的 1.18%。
 - 後兩段時間是 0，是因為測試沒有走到 `ExitBootServices`。
-- 熱點第 1 名當時是整段 `PHASE / Entry->ReadyToBoot`，因為平台的 `PerformanceLib` 還是空實作，沒有逐模組 gauge。2026-11-05 用新紀錄重編後，三次開機的旗標都是 EndOfDxe=1、ReadyToBoot=1、ExitBootServices=0、PolicyEnabled=0；熱點改成三段：`EndOfDxe->ReadyToBoot`、`Entry->EndOfDxe`，以及 `NOT_REACHED / ExitBootServices`。
+- 熱點第 1 名當時是整段 `PHASE / Entry->ReadyToBoot`，因為平台的 `PerformanceLib` 還是空實作，沒有逐模組 gauge。
 
 這個結果的價值是量測流程能看出「差異在誤差裡」。後續若要做優化，先看階段旗標和 gauge 排名，再改一個具體路徑，並用 Median / P95 判斷。
+
+## 2026-11-05 完整 A/B（各 10 次）
+
+與 2026-04-26 相同次數。來源：`edk2/BootTimeOptPkg/docs/AB_Results_2026-11-05.md`。
+
+| Metric | Baseline Mean (ns) | Optimized Mean (ns) | Delta (ns) | 差異 (%) |
+|---|---:|---:|---:|---:|
+| EntryToEndOfDxeNs | 271844465.8 | 263590847 | -8253618.8 | 3.04 |
+| EndOfDxeToReadyToBootNs | 648064376.4 | 646222773.6 | -1841602.8 | 0.28 |
+| ReadyToBootToExitBootServicesNs | 0 | 0 | 0 | 0 |
+| EntryToExitBootServicesNs | 0 | 0 | 0 | 0 |
+| HotspotRank1DurationNs | 636880692.5 | 634286424.3 | -2594268.2 | 0.41 |
+
+同樣不能當成優化成功：兩次建置仍只差政策 PCD；baseline 組內 EndOfDxe→ReadyToBoot 約 610–695 ms（約 14%），大於表上 0.28%。20 次旗標都是 EndOfDxe=1、ReadyToBoot=1、ExitBootServices=0；熱點第 1 名是 `EndOfDxe->ReadyToBoot`。絕對時間比 4 月高，是因為 TCG 跟著宿主機負載變，跨月的奈秒不要直接比。
