@@ -1,6 +1,15 @@
-# BootTimeOpt A/B Results (2026-11-06)
+# BootTimeOpt A/B 結果（2026-11-06）
 
-Single reported experiment for this repository.
+本倉庫**唯一**對外報告的實驗紀錄。用語與根目錄 `README.md` 一致：這是量測／A/B 流程驗證，不是「開機已變快」的宣稱。
+
+## 結論摘要
+
+- 兩臂 PCD 正確：baseline `Policy=0, Hotspot=0`；optimized `Policy=1, Hotspot=1`。  
+- 主指標 `EndOfDxeToReadyToBootNs` 的 Median 差約 31 ms，雜訊門檻約 39 ms → **未通過**預先登記的判定規則。  
+- 因此：熱點收集在此 TCG 環境下的開銷無法與重複誤差清楚分開；可確認量測鏈路可用，不可據此宣稱開機優化成功。  
+- `ReadyToBootToExitBootServicesNs` / `EntryToExitBootServicesNs` 為 0：測試把 Dump 當 BOOTX64，不會走到 ExitBootServices。
+
+---
 
 ## Setup
 
