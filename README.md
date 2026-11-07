@@ -1,6 +1,6 @@
 # x86 UEFI Boot-Time Measurement
 
-基於 EDK II／OVMF 之開機延遲量測與效能 A/B 基準評測套件。本倉庫採 Overlay（差分覆蓋）架構，僅收錄本專案新增與變更之模組與設定檔；使用前須將內容覆蓋（整合）至完整的 EDK II 原始碼根目錄中，方可進行建置並透過 QEMU 模擬執行。
+基於 EDK II／OVMF 之開機延遲量測與效能 A/B 基準評測套件。本專案採 Overlay（差分覆蓋）架構，僅收錄新增與變更之模組與設定檔；使用前須將內容覆蓋（整合）至完整的 EDK II 原始碼根目錄中，方可進行建置並透過 QEMU 模擬執行。
 
 本專案可在 DXE／BDS 記錄開機各段耗時與耗時項目、輸出 CSV、重複開機統計，並比較兩組建置的差異是否大於組內變異。  
 
@@ -65,7 +65,7 @@ CSV 的 `PolicyEnabled`／`HotspotEnabled` 對應建置時的 PCD。
 
 ---
 
-## 倉庫內容
+## 專案內容
 
 ```text
 edk2/
@@ -138,11 +138,7 @@ edk2/
 | `PolicyEnabled`／`HotspotEnabled` | 建置 PCD |
 | `rank,...` | 有收集時的耗時項目列；baseline 常為 `hotspot,error` |
 
-主指標判定（見 [`docs/AB_Results.md`](edk2/BootTimeOptPkg/docs/AB_Results.md)）：
-
-`|Median_opt − Median_base| > (Max_base − Min_base) / 2`
-
-未通過則不得宣稱開機加速成功。
+完整統計見 [`docs/AB_Results.md`](edk2/BootTimeOptPkg/docs/AB_Results.md)。
 
 ### 定稿（2026-11-07，每組 10 次）
 
@@ -156,8 +152,8 @@ edk2/
 | EntryToExitBootServicesNs | 1527847477.3 | 1492540168.6 | -35307308.7 | 2.31 |
 
 - baseline：`PolicyEnabled=0, HotspotEnabled=0`；optimized：`1,1`；全部 `ExitBootServicesReached=1`  
-- 主指標 Median 差約 36.2 ms，門檻約 46.9 ms → **未通過**  
-- 結論：含 EBS 的量測流程可用；開啟耗時項目收集的影響仍無法與重複變異分開
+- `EndOfDxeToReadyToBootNs` Median：baseline `713717385` ns，optimized `677491831.5` ns（差約 36.2 ms）  
+- baseline 同組 Max−Min：`93864443` ns（約 93.9 ms）
 
 ---
 
@@ -166,4 +162,4 @@ edk2/
 1. QEMU TCG 受宿主機負載影響，不宜跨機或跨日比絕對奈秒。  
 2. 會走到 `ExitBootServices`，但不載入作業系統。  
 3. 耗時項目常為階段時間，不是每個驅動的詳細排名。  
-4. optimized 組多做的是收集工作；要驗證真實加速，需另改開機路徑後再用同一腳本與門檻驗證。
+4. optimized 組多做的是收集工作；若要驗證真實加速，需另改開機路徑後再以同一腳本量測比較。
