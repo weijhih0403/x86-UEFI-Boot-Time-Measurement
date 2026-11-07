@@ -84,11 +84,13 @@ function Extract-CsvLinesFromSerial {
 function Test-RunCsvComplete {
   param([System.Collections.Generic.List[string]]$Lines)
   $hasSummary = ($Lines | Where-Object { $_ -match '^summary,EntryToEndOfDxeNs,[0-9]+$' }).Count -gt 0
+  $hasEbs = ($Lines | Where-Object { $_ -match '^summary,ExitBootServicesReached,1$' }).Count -gt 0
   $hasRank1 = ($Lines | Where-Object { $_ -match '^1,(gauge|phase),[0-9]+,[^,]*,.+$' }).Count -gt 0
   $hasHotspotError = ($Lines | Where-Object { $_ -match '^hotspot,error,' }).Count -gt 0
   $hasLast = ($Lines | Where-Object { $_ -match '^last_successful_bootoption,[0-9]+$' }).Count -gt 0
+  # Dump calls ExitBootServices before printing; require ExitBootServicesReached=1.
   # Hotspot collection may be build-disabled; Dump then prints hotspot,error instead of ranks.
-  return ($hasSummary -and $hasLast -and ($hasRank1 -or $hasHotspotError))
+  return ($hasSummary -and $hasEbs -and $hasLast -and ($hasRank1 -or $hasHotspotError))
 }
 
 function Parse-RunCsv {

@@ -21,6 +21,8 @@
   DebugLib
   TimerLib
   BaseMemoryLib
+  PrintLib
+  SerialPortLib
 
 [Guids]
   gEfiEndOfDxeEventGroupGuid

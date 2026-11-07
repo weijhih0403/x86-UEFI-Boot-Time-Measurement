@@ -24,7 +24,9 @@
 [LibraryClasses]
   UefiApplicationEntryPoint
   UefiLib
+  UefiBootServicesTableLib
   UefiRuntimeServicesTableLib
+  MemoryAllocationLib
   BaseLib
   BaseMemoryLib
   PrintLib

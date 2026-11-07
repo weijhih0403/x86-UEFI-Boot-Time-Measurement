@@ -6,6 +6,8 @@
 
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
+#include <Library/PrintLib.h>
+#include <Library/SerialPortLib.h>
 #include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
@@ -197,6 +199,11 @@ OnExitBootServices (
   IN VOID       *Context
   )
 {
+  CHAR8   Line[128];
+  UINTN   Len;
+  UINT64  ReadyToEbsNs;
+  UINT64  EntryToEbsNs;
+
   mExitBootServicesTick = GetPerformanceCounter ();
   mPhaseMask           |= BOOT_TIME_PHASE_EXIT_BOOT_SERVICES;
 
@@ -205,13 +212,27 @@ OnExitBootServices (
   SaveLastSuccessfulBootOption ();
   PersistSummary ();
 
+  //
+  // ConOut/Print is unsafe around ExitBootServices. Append final EBS CSV lines
+  // via SerialPortLib so the host benchmark can require ExitBootServicesReached=1.
+  //
+  ReadyToEbsNs = GetDeltaNsSafe (mReadyToBootTick, mExitBootServicesTick);
+  EntryToEbsNs = GetDeltaNsSafe (mEntryTick, mExitBootServicesTick);
+
+  Len = AsciiSPrint (Line, sizeof (Line), "summary,ReadyToBootToExitBootServicesNs,%Lu\n", ReadyToEbsNs);
+  SerialPortWrite ((UINT8 *)Line, Len);
+  Len = AsciiSPrint (Line, sizeof (Line), "summary,EntryToExitBootServicesNs,%Lu\n", EntryToEbsNs);
+  SerialPortWrite ((UINT8 *)Line, Len);
+  Len = AsciiSPrint (Line, sizeof (Line), "summary,ExitBootServicesReached,1\n");
+  SerialPortWrite ((UINT8 *)Line, Len);
+
   DEBUG ((
     DEBUG_INFO,
     "BootTimeProfilerDxe: Summary(ns): E->EndDxe=%Lu, EndDxe->Ready=%Lu, Ready->EBS=%Lu, E->EBS=%Lu\n",
     TicksToNanoSeconds (mEndOfDxeTick - mEntryTick),
     TicksToNanoSeconds (mReadyToBootTick - mEndOfDxeTick),
-    TicksToNanoSeconds (mExitBootServicesTick - mReadyToBootTick),
-    TicksToNanoSeconds (mExitBootServicesTick - mEntryTick)
+    ReadyToEbsNs,
+    EntryToEbsNs
     ));
 }
 

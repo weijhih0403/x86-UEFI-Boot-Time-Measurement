@@ -1,5 +1,6 @@
 /** @file
-  Print BootTimeSummary / BootTimeHotspotLog / LastSuccessfulBootOption.
+  Print BootTimeSummary / BootTimeHotspotLog / LastSuccessfulBootOption,
+  then call ExitBootServices so Profiler can record the final phase.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
@@ -8,7 +9,10 @@
 
 #include <Guid/BootTimeOptPkgVariable.h>
 
+#include <Library/BaseLib.h>
+#include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 
@@ -73,11 +77,11 @@ DumpHotspot (
   IN BOOLEAN  Csv
   )
 {
-  EFI_STATUS              Status;
-  BOOT_TIME_HOTSPOT_LOG   H;
-  UINTN                   Size;
-  UINT32                  Attr;
-  UINTN                   Idx;
+  EFI_STATUS             Status;
+  BOOT_TIME_HOTSPOT_LOG  H;
+  UINTN                  Size;
+  UINT32                 Attr;
+  UINTN                  Idx;
 
   Size = sizeof (H);
   Status = gRT->GetVariable (
@@ -159,6 +163,78 @@ DumpLastBootOption (
   }
 }
 
+/**
+  Call ExitBootServices. BootTimeProfilerDxe's notify updates NVRAM and emits
+  final EBS CSV lines on the serial port (Print is unsafe after this returns).
+**/
+STATIC
+EFI_STATUS
+CallExitBootServices (
+  IN EFI_HANDLE  ImageHandle
+  )
+{
+  EFI_STATUS             Status;
+  UINTN                  MemoryMapSize;
+  EFI_MEMORY_DESCRIPTOR  *MemoryMap;
+  UINTN                  MapKey;
+  UINTN                  DescriptorSize;
+  UINT32                 DescriptorVersion;
+  UINTN                  Retry;
+
+  MemoryMap     = NULL;
+  MemoryMapSize = 0;
+  Status        = gBS->GetMemoryMap (
+                         &MemoryMapSize,
+                         MemoryMap,
+                         &MapKey,
+                         &DescriptorSize,
+                         &DescriptorVersion
+                         );
+  if (Status != EFI_BUFFER_TOO_SMALL) {
+    return Status;
+  }
+
+  for (Retry = 0; Retry < 8; Retry++) {
+    MemoryMapSize += DescriptorSize * 32;
+    if (MemoryMap != NULL) {
+      FreePool (MemoryMap);
+      MemoryMap = NULL;
+    }
+
+    MemoryMap = AllocatePool (MemoryMapSize);
+    if (MemoryMap == NULL) {
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    Status = gBS->GetMemoryMap (
+                    &MemoryMapSize,
+                    MemoryMap,
+                    &MapKey,
+                    &DescriptorSize,
+                    &DescriptorVersion
+                    );
+    if (EFI_ERROR (Status)) {
+      if (Status == EFI_BUFFER_TOO_SMALL) {
+        continue;
+      }
+
+      FreePool (MemoryMap);
+      return Status;
+    }
+
+    Status = gBS->ExitBootServices (ImageHandle, MapKey);
+    if (!EFI_ERROR (Status)) {
+      return EFI_SUCCESS;
+    }
+  }
+
+  if (MemoryMap != NULL) {
+    FreePool (MemoryMap);
+  }
+
+  return EFI_NOT_READY;
+}
+
 EFI_STATUS
 EFIAPI
 UefiMain (
@@ -166,11 +242,26 @@ UefiMain (
   IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  BOOLEAN  Csv;
+  BOOLEAN     Csv;
+  EFI_STATUS  Status;
 
   Csv = TRUE;
+
+  //
+  // Print while Boot Services / ConOut are still valid. EBS fields are still
+  // zero here; BootTimeProfilerDxe appends the final EBS CSV lines on serial
+  // from its ExitBootServices notify (SerialPortLib, not Print).
+  //
   DumpSummary (Csv);
   DumpHotspot (Csv);
   DumpLastBootOption (Csv);
+
+  Status = CallExitBootServices (ImageHandle);
+  if (EFI_ERROR (Status)) {
+    Print (L"summary,ExitBootServicesError,%r\n", Status);
+    return Status;
+  }
+
+  CpuDeadLoop ();
   return EFI_SUCCESS;
 }
