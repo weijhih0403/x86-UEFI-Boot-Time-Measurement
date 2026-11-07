@@ -82,7 +82,7 @@ $abRows | Export-Csv -Path $abCsv -NoTypeInformation -Encoding utf8
 
 $md = Join-Path $OutputDir "ab_comparison.md"
 $lines = @(
-  "# BootTimeOpt A/B Comparison",
+  "# Boot-Time Measurement A/B Comparison",
   "",
   "- Baseline: ``$BaselineStatsCsv``",
   "- Optimized: ``$OptimizedStatsCsv``",

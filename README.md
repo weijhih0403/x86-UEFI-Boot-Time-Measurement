@@ -1,4 +1,4 @@
-# x86 UEFI Boot-Time Optimizer
+# x86 UEFI Boot-Time Measurement
 
 EDK II／OVMF 上的開機時間量測與 A/B 比較工具。本倉庫是 **overlay**（只含本專案新增與修改的檔案），需合併到可建置的完整 `edk2` 才能編譯並用 QEMU 執行。
 

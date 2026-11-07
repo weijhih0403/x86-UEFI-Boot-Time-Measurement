@@ -167,7 +167,7 @@ $pcdPolicy = "gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnablePolicy=$policyVa
 $pcdHotspot = "gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnableHotspot=$hotspotValue"
 $dsc = "OvmfPkg/OvmfPkgX64.dsc"
 
-Write-Host "== BootTimeOpt benchmark runner =="
+Write-Host "== Boot-Time Measurement benchmark runner =="
 Write-Host "Edk2Root : $Edk2Root"
 Write-Host "Mode     : $Mode"
 Write-Host "Policy   : $policyValue"
