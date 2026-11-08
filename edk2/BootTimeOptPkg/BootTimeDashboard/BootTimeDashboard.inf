@@ -1,0 +1,50 @@
+## @file
+#  BootTimeDashboard interactive viewer.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = BootTimeDashboard
+  FILE_GUID                      = A1B2C3D4-E5F6-4789-AB01-23456789CDEF
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  ENTRY_POINT                    = UefiMain
+
+[Sources]
+  BootTimeDashboard.c
+  Common/BdTypes.h
+  Ui/Input.h
+  Ui/Input.c
+  Ui/TextUi.h
+  Ui/TextUi.c
+  Pages/BootTimePage.h
+  Pages/BootTimePage.c
+  Pages/SystemInfoPage.h
+  Pages/SystemInfoPage.c
+  Pages/MemoryMapPage.h
+  Pages/MemoryMapPage.c
+  Pages/SmbiosParse.h
+  Pages/SmbiosParse.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  BootTimeOptPkg/BootTimeOptPkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  BaseLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  PrintLib
+  DebugLib
+
+[Guids]
+  gBootTimeOptPkgVariableGuid
+  gEfiSmbiosTableGuid
+  gEfiSmbios3TableGuid

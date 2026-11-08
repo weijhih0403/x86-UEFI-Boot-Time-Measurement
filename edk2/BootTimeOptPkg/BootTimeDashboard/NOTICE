@@ -1,0 +1,20 @@
+BootTimeDashboard — notices and third-party references
+======================================================
+
+1. FirmwareDashboardPkg (UI / SMBIOS / Memory Map reference)
+   Source: https://github.com/weijhih0403/FirmwareDashboardPkg
+   License: BSD-2-Clause-Patent (see that repository LICENSE / NOTICE)
+
+   Integrated into BootTimeOptPkg as BootTimeDashboard:
+   - Text menu, WaitForEvent keyboard input, page frame helpers
+   - Bounds-checked SMBIOS 2.x / 3.x parsing
+   - GetMemoryMap category totals
+
+   Redesigned for this project:
+   - Boot-Time Measurements page reads BootTimeOptPkg NVRAM structs
+   - No Devices / Boot Entries / Settings placeholders
+   - Scrollable text pages; no ExitBootServices
+   - Kept separate from BootTimeDump automated CSV path
+
+2. EDK II / TianoCore
+   Built against EDK II; not redistributed in this overlay.

@@ -313,6 +313,7 @@ INF  OvmfPkg/VirtHstiDxe/VirtHstiDxe.inf
 INF  BootTimeOptPkg/BootTimeProfilerDxe/BootTimeProfilerDxe.inf
 INF  BootTimeOptPkg/BootTimeHotspotDxe/BootTimeHotspotDxe.inf
 INF  BootTimeOptPkg/BootTimeDump/BootTimeDump.inf
+INF  BootTimeOptPkg/BootTimeDashboard/BootTimeDashboard.inf
 
 !if $(SMM_REQUIRE) == TRUE
 INF  OvmfPkg/SmmAccess/SmmAccess2Dxe.inf
