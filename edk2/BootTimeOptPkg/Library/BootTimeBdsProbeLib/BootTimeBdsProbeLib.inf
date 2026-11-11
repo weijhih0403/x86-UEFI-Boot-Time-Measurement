@@ -1,0 +1,29 @@
+## @file
+#  BDS checkpoint probes for boot-time breakdown.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = BootTimeBdsProbeLib
+  FILE_GUID                      = 7C2E9A41-6B8D-4F1E-9C3A-5D8E2F4A1B70
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = BootTimeBdsProbeLib|DXE_DRIVER UEFI_APPLICATION
+
+[Sources]
+  BootTimeBdsProbeLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  BootTimeOptPkg/BootTimeOptPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  DebugLib
+  TimerLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gBootTimeOptPkgVariableGuid

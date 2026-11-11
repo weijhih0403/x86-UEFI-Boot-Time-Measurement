@@ -33,6 +33,7 @@
   OvmfPkg/OvmfPkg.dec
   SecurityPkg/SecurityPkg.dec
   ShellPkg/ShellPkg.dec
+  BootTimeOptPkg/BootTimeOptPkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -58,6 +59,7 @@
   XenPlatformLib
   QemuFwCfgSimpleParserLib
   PlatformBootManagerCommonLib
+  BootTimeBdsProbeLib
 
 [Pcd]
   gUefiOvmfPkgTokenSpaceGuid.PcdEmuVariableEvent

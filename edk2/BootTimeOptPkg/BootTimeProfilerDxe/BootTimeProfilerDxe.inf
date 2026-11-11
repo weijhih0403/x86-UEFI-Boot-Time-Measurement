@@ -23,6 +23,7 @@
   BaseMemoryLib
   PrintLib
   SerialPortLib
+  BootTimeBdsProbeLib
 
 [Guids]
   gEfiEndOfDxeEventGroupGuid

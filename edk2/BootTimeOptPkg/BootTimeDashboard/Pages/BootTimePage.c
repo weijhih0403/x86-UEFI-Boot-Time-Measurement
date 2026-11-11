@@ -235,6 +235,61 @@ BdBootTimePage (
   }
 
   BdPageBufferAdd (&Buf, L"");
+  BdPageBufferAdd (&Buf, L"[ BDS breakdown  EndOfDxe->ReadyToBoot ]");
+  {
+    BOOT_TIME_BDS_BREAKDOWN  Bds;
+    UINTN                    BdsSize;
+    UINT32                   BdsAttr;
+
+    BdsSize = sizeof (Bds);
+    Status  = gRT->GetVariable (
+                     BOOT_TIME_BDS_BREAKDOWN_VAR_NAME,
+                     &gBootTimeOptPkgVariableGuid,
+                     &BdsAttr,
+                     &BdsSize,
+                     &Bds
+                     );
+    if (EFI_ERROR (Status) ||
+        (BdsSize != sizeof (Bds)) ||
+        (Bds.Signature != BOOT_TIME_BDS_BREAKDOWN_SIGNATURE))
+    {
+      BdPageBufferAdd (&Buf, L"  unavailable (%r)", Status);
+    } else {
+      BdAddMsOrNotReached (
+        &Buf,
+        L"PreConnect (EoD->Connect)",
+        Bds.PreConnectNs,
+        (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_CONNECT) != 0)
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"ConnectAll",
+        Bds.ConnectAllNs,
+        (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_CONNECT) != 0)
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"RefreshBootOptions",
+        Bds.RefreshBootOptionsNs,
+        (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_REFRESH) != 0)
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"PostRefresh -> ReadyToBoot",
+        Bds.PostRefreshToReadyToBootNs,
+        (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_READY_TO_BOOT) != 0)
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"LoadPath (RTB->Dump entry)",
+        Bds.LoadPathNs,
+        (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_LOAD_PATH) != 0)
+        );
+      BdPageBufferAdd (&Buf, L"  Flags                    0x%x", (UINT32)Bds.Flags);
+    }
+  }
+
+  BdPageBufferAdd (&Buf, L"");
   BdPageBufferAdd (&Buf, L"[ Hotspot / duration items ]");
   Status = BdLoadHotspot (&Hotspot, Err, ARRAY_SIZE (Err), &HotspotPresent);
   if (!HotspotPresent) {

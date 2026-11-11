@@ -10,6 +10,7 @@
 #include <Guid/BootTimeOptPkgVariable.h>
 
 #include <Library/BaseLib.h>
+#include <Library/BootTimeBdsProbeLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -68,6 +69,55 @@ DumpSummary (
     Print (L"Policy enabled:                %a\n", FixedPcdGetBool (PcdBootTimeOptEnablePolicy) ? "yes" : "no");
     Print (L"Hotspot enabled:               %a\n", FixedPcdGetBool (PcdBootTimeOptEnableHotspot) ? "yes" : "no");
     Print (L"LastBootCurrent:               Boot%04x\n", S.LastBootCurrent);
+  }
+}
+
+STATIC
+VOID
+DumpBdsBreakdown (
+  IN BOOLEAN  Csv
+  )
+{
+  EFI_STATUS               Status;
+  BOOT_TIME_BDS_BREAKDOWN  B;
+  UINTN                    Size;
+  UINT32                   Attr;
+
+  Size   = sizeof (B);
+  Status = gRT->GetVariable (
+                  BOOT_TIME_BDS_BREAKDOWN_VAR_NAME,
+                  &gBootTimeOptPkgVariableGuid,
+                  &Attr,
+                  &Size,
+                  &B
+                  );
+  if (EFI_ERROR (Status) ||
+      (Size != sizeof (B)) ||
+      (B.Signature != BOOT_TIME_BDS_BREAKDOWN_SIGNATURE))
+  {
+    if (Csv) {
+      Print (L"bds,error,%r\n", Status);
+    } else {
+      Print (L"BootTimeBdsBreakdown: not found (%r)\n", Status);
+    }
+    return;
+  }
+
+  if (Csv) {
+    Print (L"bds,PreConnectNs,%Lu\n", B.PreConnectNs);
+    Print (L"bds,ConnectAllNs,%Lu\n", B.ConnectAllNs);
+    Print (L"bds,RefreshBootOptionsNs,%Lu\n", B.RefreshBootOptionsNs);
+    Print (L"bds,PostRefreshToReadyToBootNs,%Lu\n", B.PostRefreshToReadyToBootNs);
+    Print (L"bds,LoadPathNs,%Lu\n", B.LoadPathNs);
+    Print (L"bds,Flags,%u\n", (UINT32)B.Flags);
+  } else {
+    Print (L"=== BootTimeBdsBreakdown ===\n");
+    Print (L"PreConnect:                    %Lu ns\n", B.PreConnectNs);
+    Print (L"ConnectAll:                    %Lu ns\n", B.ConnectAllNs);
+    Print (L"RefreshBootOptions:            %Lu ns\n", B.RefreshBootOptionsNs);
+    Print (L"PostRefresh->ReadyToBoot:      %Lu ns\n", B.PostRefreshToReadyToBootNs);
+    Print (L"LoadPath (RTB->Dump entry):    %Lu ns\n", B.LoadPathNs);
+    Print (L"Flags:                         0x%x\n", (UINT32)B.Flags);
   }
 }
 
@@ -248,11 +298,17 @@ UefiMain (
   Csv = TRUE;
 
   //
+  // Capture ReadyToBoot -> Dump entry before printing (LoadImage/StartImage approx).
+  //
+  BootTimeBdsMarkLoadPathAtAppEntry ();
+
+  //
   // Print while Boot Services / ConOut are still valid. EBS fields are still
   // zero here; BootTimeProfilerDxe appends the final EBS CSV lines on serial
   // from its ExitBootServices notify (SerialPortLib, not Print).
   //
   DumpSummary (Csv);
+  DumpBdsBreakdown (Csv);
   DumpHotspot (Csv);
   DumpLastBootOption (Csv);
 

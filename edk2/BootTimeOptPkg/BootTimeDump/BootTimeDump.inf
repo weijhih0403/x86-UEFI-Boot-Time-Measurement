@@ -32,6 +32,8 @@
   PrintLib
   DebugLib
   PcdLib
+  BootTimeBdsProbeLib
+  TimerLib
 
 [Guids]
   gBootTimeOptPkgVariableGuid

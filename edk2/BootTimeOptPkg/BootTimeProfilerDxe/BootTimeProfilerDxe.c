@@ -5,6 +5,7 @@
 #include <Guid/BootTimeOptPkgVariable.h>
 
 #include <Library/BaseMemoryLib.h>
+#include <Library/BootTimeBdsProbeLib.h>
 #include <Library/DebugLib.h>
 #include <Library/PrintLib.h>
 #include <Library/SerialPortLib.h>
@@ -12,16 +13,19 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 
+// 階段事件 handle
 STATIC EFI_EVENT  mEndOfDxeEvent          = NULL;
 STATIC EFI_EVENT  mReadyToBootEvent       = NULL;
 STATIC EFI_EVENT  mExitBootServicesEvent  = NULL;
 
+// 各階段的效能計數器讀數（tick）
 STATIC UINT64     mEntryTick              = 0;
 STATIC UINT64     mEndOfDxeTick           = 0;
 STATIC UINT64     mReadyToBootTick        = 0;
 STATIC UINT64     mExitBootServicesTick   = 0;
-STATIC UINT16     mPhaseMask              = 0;
+STATIC UINT16     mPhaseMask              = 0;  // 哪些階段已到達
 
+// tick 差 → 奈秒
 STATIC
 UINT64
 TicksToNanoSeconds (
@@ -31,6 +35,7 @@ TicksToNanoSeconds (
   return GetTimeInNanoSecond (DeltaTicks);
 }
 
+// 起訖無效則回 0，否則回間隔（ns）
 STATIC
 UINT64
 GetDeltaNsSafe (
@@ -45,6 +50,7 @@ GetDeltaNsSafe (
   return TicksToNanoSeconds (EndTick - StartTick);
 }
 
+// 讀 UEFI 全域變數 BootCurrent
 STATIC
 VOID
 ReadBootCurrent (
@@ -74,6 +80,7 @@ ReadBootCurrent (
   }
 }
 
+// 組 BOOT_TIME_SUMMARY 並寫入 NVRAM
 STATIC
 VOID
 PersistSummary (
@@ -120,6 +127,7 @@ PersistSummary (
   DEBUG ((DEBUG_INFO, "BootTimeProfilerDxe: SetVariable(%s) -> %r\n", BOOT_TIME_SUMMARY_VAR_NAME, Status));
 }
 
+// 把目前 BootCurrent 另存為 LastBootOption
 STATIC
 VOID
 SaveLastSuccessfulBootOption (
@@ -156,6 +164,7 @@ SaveLastSuccessfulBootOption (
   DEBUG ((DEBUG_INFO, "BootTimeProfilerDxe: Saved %s=Boot%04x (%r)\n", BOOT_TIME_LAST_BOOT_OPTION_VAR_NAME, BootCurrent, Status));
 }
 
+// EndOfDxe：記 tick、更新摘要
 STATIC
 VOID
 EFIAPI
@@ -170,6 +179,7 @@ OnEndOfDxe (
   PersistSummary ();
 }
 
+// ReadyToBoot：記 tick；EBS 未到則保持 0
 STATIC
 VOID
 EFIAPI
@@ -182,11 +192,7 @@ OnReadyToBoot (
   mPhaseMask      |= BOOT_TIME_PHASE_READY_TO_BOOT;
   DEBUG ((DEBUG_INFO, "BootTimeProfilerDxe: ReadyToBoot at %Lu ns from entry\n", TicksToNanoSeconds (mReadyToBootTick - mEntryTick)));
 
-  //
-  // Leave ExitBootServices at 0 when it has not happened. A later callback
-  // fills it in. Dump can tell "not reached" from a real zero-length phase
-  // by reading the phase mask.
-  //
+  BootTimeBdsOnReadyToBoot ();
   SaveLastSuccessfulBootOption ();
   PersistSummary ();
 }
@@ -212,10 +218,7 @@ OnExitBootServices (
   SaveLastSuccessfulBootOption ();
   PersistSummary ();
 
-  //
-  // ConOut/Print is unsafe around ExitBootServices. Append final EBS CSV lines
-  // via SerialPortLib so the host benchmark can require ExitBootServicesReached=1.
-  //
+  // EBS 時 Print 不安全，改串列輸出最終 CSV
   ReadyToEbsNs = GetDeltaNsSafe (mReadyToBootTick, mExitBootServicesTick);
   EntryToEbsNs = GetDeltaNsSafe (mEntryTick, mExitBootServicesTick);
 
@@ -236,6 +239,7 @@ OnExitBootServices (
     ));
 }
 
+// 驅動進入點：記 entry、先寫一筆摘要、註冊三個階段事件
 EFI_STATUS
 EFIAPI
 BootTimeProfilerDxeEntryPoint (
@@ -252,10 +256,7 @@ BootTimeProfilerDxeEntryPoint (
   mPhaseMask            = 0;
   DEBUG ((DEBUG_INFO, "BootTimeProfilerDxe: Entry\n"));
 
-  //
-  // Persist an initial summary immediately so Shell-only paths can always
-  // validate driver presence via dmpstore/BootTimeDump output.
-  //
+  // 立刻寫一筆，方便 Dump 確認驅動有載入
   SaveLastSuccessfulBootOption ();
   PersistSummary ();
 

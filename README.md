@@ -10,12 +10,13 @@
 ## 流程
 
 1. `BootTimeProfilerDxe` 在 EndOfDxe、ReadyToBoot、ExitBootServices 讀取效能計數器，把各段耗時寫入 UEFI 變數 `BootTimeSummary`。  
-2. `BootTimeHotspotDxe` 在 ReadyToBoot 依 PCD 決定是否收集耗時項目，寫入 `BootTimeHotspotLog`。  
-3. **自動測試**：`BootTimeDump` 讀取變數並印 CSV，接著呼叫 `ExitBootServices`；Profiler 在回呼中更新 NVRAM，並用序列埠補上最終 EBS 欄位。  
-4. `run_benchmark.ps1`／`compare_ab.ps1` 重複開機並比較統計。  
-5. **互動查看**：從 UEFI Shell 執行 `BootTimeDashboard.efi`（不呼叫 `ExitBootServices`）。
+2. `BootTimeBdsProbeLib`（掛在 OVMF `PlatformBootManagerLib`）在 Connect／Refresh 前後記檢查點，寫入 `BootTimeBdsBreakdown`；Profiler 在 ReadyToBoot 補齊 PostRefresh；Dump 進入時補齊 LoadPath。  
+3. `BootTimeHotspotDxe` 在 ReadyToBoot 依 PCD 決定是否收集耗時項目，寫入 `BootTimeHotspotLog`。  
+4. **自動測試**：`BootTimeDump` 讀取變數並印 CSV，接著呼叫 `ExitBootServices`；Profiler 在回呼中更新 NVRAM，並用序列埠補上最終 EBS 欄位。  
+5. `run_benchmark.ps1`／`compare_ab.ps1` 重複開機並比較統計。  
+6. **互動查看**：從 UEFI Shell 執行 `BootTimeDashboard.efi`（不呼叫 `ExitBootServices`）。
 
-資料路徑（自動測試）：兩個 DXE driver → `SetVariable`（NVRAM）→ Dump `GetVariable`／印 CSV → `ExitBootServices` → Profiler 補 EBS CSV → 主機腳本。  
+資料路徑（自動測試）：DXE driver／BDS probe → `SetVariable`（NVRAM）→ Dump `GetVariable`／印 CSV → `ExitBootServices` → Profiler 補 EBS CSV → 主機腳本。  
 結構定義：`edk2/BootTimeOptPkg/Include/Guid/BootTimeOptPkgVariable.h`。
 
 ---
@@ -27,9 +28,24 @@
 | 模組 | 類型 | 時機 | 輸出 |
 |---|---|---|---|
 | `BootTimeProfilerDxe` | DXE driver | EndOfDxe、ReadyToBoot、ExitBootServices | `BootTimeSummary` |
+| `BootTimeBdsProbeLib` | Library（BDS） | Connect／Refresh／ReadyToBoot／Dump 進入 | `BootTimeBdsBreakdown` |
 | `BootTimeHotspotDxe` | DXE driver | ReadyToBoot（受 PCD 控制） | `BootTimeHotspotLog` |
 | `BootTimeDump` | UEFI application | 自動測試 BOOTX64 | 序列埠 CSV（會呼叫 EBS） |
 | `BootTimeDashboard` | UEFI application | Shell 手動執行 | 文字選單（不呼叫 EBS） |
+
+### BDS 細分（EndOfDxe → ReadyToBoot）
+
+OVMF 在 `PlatformBootManagerBeforeConsole` 內才送出 EndOfDxe。此區間拆成：
+
+| CSV 欄位 | 意義 |
+|---|---|
+| `bds,PreConnectNs` | EndOfDxe → Connect 開始（含 AfterConsole 前段） |
+| `bds,ConnectAllNs` | `PlatformBdsConnectSequence`／ConnectAll |
+| `bds,RefreshBootOptionsNs` | `EfiBootManagerRefreshAllBootOption` |
+| `bds,PostRefreshToReadyToBootNs` | Refresh 結束 → ReadyToBoot 事件 |
+| `bds,LoadPathNs` | ReadyToBoot → Dump 進入（約 LoadImage／StartImage；屬 RTB→EBS，非上表四桶） |
+
+四桶加總應接近 `EndOfDxeToReadyToBootNs`（允許小誤差）。這是剖析用，不是加速。
 
 ```mermaid
 flowchart LR
@@ -76,10 +92,13 @@ edk2/
     BootTimeHotspotDxe/
     BootTimeDump/
     BootTimeDashboard/     # 互動儀表板（選單／SMBIOS／Memory Map）
+    Library/BootTimeBdsProbeLib/
     Include/Guid/
+    Include/Library/
     tools/                 # run_benchmark.ps1、compare_ab.ps1
     docs/AB_Results.md
   OvmfPkg/
+    Library/PlatformBootManagerLib/  # BDS 檢查點
     OvmfPkgX64.dsc
     OvmfPkgX64.fdf
 ```

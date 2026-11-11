@@ -70,6 +70,8 @@ function Extract-CsvLinesFromSerial {
     if (
       $clean -match '^section,metric,value$' -or
       $clean -match '^summary,[^,]+,[0-9]+$' -or
+      $clean -match '^bds,[^,]+,[0-9]+$' -or
+      $clean -match '^bds,error,' -or
       $clean -match '^rank,source,duration_ns,module,token$' -or
       $clean -match '^[0-9]+,(gauge|phase),[0-9]+,[^,]*,.+$' -or
       $clean -match '^hotspot,error,' -or
@@ -110,10 +112,22 @@ function Parse-RunCsv {
     HotspotRank1DurationNs = 0
     HotspotRank1Module = ""
     HotspotRank1Token = ""
+    PreConnectNs = 0
+    ConnectAllNs = 0
+    RefreshBootOptionsNs = 0
+    PostRefreshToReadyToBootNs = 0
+    LoadPathNs = 0
+    BdsFlags = 0
   }
   foreach ($line in (Get-Content -Path $Path)) {
     if ($line -match '^summary,([^,]+),([0-9]+)$') {
       $k = $matches[1]; $v = [double]$matches[2]
+      if ($result.Contains($k)) { $result[$k] = $v }
+      continue
+    }
+    if ($line -match '^bds,([^,]+),([0-9]+)$') {
+      $k = $matches[1]; $v = [double]$matches[2]
+      if ($k -eq "Flags") { $result.BdsFlags = $v; continue }
       if ($result.Contains($k)) { $result[$k] = $v }
       continue
     }
@@ -271,6 +285,12 @@ try {
       HotspotRank1DurationNs=$r.HotspotRank1DurationNs
       HotspotRank1Module=$r.HotspotRank1Module
       HotspotRank1Token=$r.HotspotRank1Token
+      PreConnectNs=$r.PreConnectNs
+      ConnectAllNs=$r.ConnectAllNs
+      RefreshBootOptionsNs=$r.RefreshBootOptionsNs
+      PostRefreshToReadyToBootNs=$r.PostRefreshToReadyToBootNs
+      LoadPathNs=$r.LoadPathNs
+      BdsFlags=$r.BdsFlags
     }
   }
 
@@ -278,7 +298,7 @@ try {
   $runRows | Export-Csv -NoTypeInformation -Encoding utf8 -Path $runsCsv
 
   $stats = @()
-  foreach ($m in @("EntryToEndOfDxeNs","EndOfDxeToReadyToBootNs","ReadyToBootToExitBootServicesNs","EntryToExitBootServicesNs","HotspotRank1DurationNs")) {
+  foreach ($m in @("EntryToEndOfDxeNs","EndOfDxeToReadyToBootNs","ReadyToBootToExitBootServicesNs","EntryToExitBootServicesNs","HotspotRank1DurationNs","PreConnectNs","ConnectAllNs","RefreshBootOptionsNs","PostRefreshToReadyToBootNs","LoadPathNs")) {
     $vals = $runRows | ForEach-Object { [double]($_.$m) }
     $s = Get-Stat $vals
     $stats += [pscustomobject]@{ Metric=$m; MeanNs=$s.Mean; MedianNs=$s.Median; P95Ns=$s.P95; MinNs=$s.Min; MaxNs=$s.Max }
