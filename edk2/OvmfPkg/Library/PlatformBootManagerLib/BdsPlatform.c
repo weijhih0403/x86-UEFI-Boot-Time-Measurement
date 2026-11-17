@@ -6,6 +6,25 @@
 
 **/
 
+/*
+  =====================================================================
+  BdsPlatform.c（OVMF 平台「開機管理」）─ 給只會 C 的讀者
+  ---------------------------------------------------------------------
+  這支檔案是「虛擬機韌體怎麼走完 BDS」的劇本，內容很多（上千行），
+  大部分是 Intel／OVMF 原本就有的平台邏輯（連線 PCI、主控台、註冊
+  Shell……）。
+
+  和本專案「量測」直接有關的只有幾處：呼叫 BootTimeBdsProbeLib
+  在關鍵步驟按下碼表，例如：
+    - EndOfDxe 送出後 → BootTimeBdsMarkEndOfDxe()
+    - Connect 前後   → BootTimeBdsBegin/EndConnect()
+    - Refresh 前後   → BootTimeBdsBegin/EndRefresh()
+
+  閱讀建議：先看 PlatformBootManagerBeforeConsole /
+  PlatformBootManagerAfterConsole 這兩個函式，不必一次讀完整檔。
+  =====================================================================
+*/
+
 #include "BdsPlatform.h"
 #include <Guid/RootBridgesConnectedEventGroup.h>
 #include <Guid/SerialPortLibVendor.h>
@@ -218,6 +237,10 @@ PlatformBootManagerBeforeConsole (
   VOID
   )
 {
+  /*
+    主控台還沒就緒前要做的事。對量測最重要的是：在這裡才送出
+    EndOfDxe（DXE 階段結束的廣播），並按下我們的第一個細分碼表。
+  */
   EFI_HANDLE     Handle;
   EFI_STATUS     Status;
   UINT16         FrontPageTimeout;
@@ -227,6 +250,9 @@ PlatformBootManagerBeforeConsole (
   DEBUG ((DEBUG_INFO, "PlatformBootManagerBeforeConsole\n"));
   InstallDevicePathCallback ();
 
+  //
+  // 1. 連線 PCI Root Bridge（主機板上的 PCI 根橋，才能繼續找裝置）
+  //
   VisitAllInstancesOfProtocol (
     &gEfiPciRootBridgeIoProtocolGuid,
     ConnectRootBridge,
@@ -234,16 +260,14 @@ PlatformBootManagerBeforeConsole (
     );
 
   //
-  // Signal the ACPI platform driver that it can download QEMU ACPI tables.
+  // 2. 廣播「Root Bridge 已連線」→ 其他模組（例如 ACPI）可以接著做事
   //
   EfiEventGroupSignal (&gRootBridgesConnectedEventGroupGuid);
 
   //
-  // We can't signal End-of-Dxe earlier than this. Namely, End-of-Dxe triggers
-  // the preparation of S3 system information. That logic has a hard dependency
-  // on the presence of the FACS ACPI table. Since our ACPI tables are only
-  // installed after PCI enumeration completes, we must not trigger the S3 save
-  // earlier, hence we can't signal End-of-Dxe earlier.
+  // 3. 廣播 EndOfDxe（「DXE 核心階段告一段落」）
+  //    不能太早發：後面還依賴 ACPI／FACS 等資料。
+  //    下一行是本專案量測：把這個瞬間記進 NVRAM。
   //
   EfiEventGroupSignal (&gEfiEndOfDxeEventGroupGuid);
   BootTimeBdsMarkEndOfDxe ();
@@ -1617,6 +1641,11 @@ PlatformBootManagerAfterConsole (
   VOID
   )
 {
+  /*
+    主控台可用之後：顯示 logo、處理 QEMU 開機順序、連線裝置、
+    刷新 Boot#### 清單、註冊 Shell 等。
+    量測重點在「連線裝置」與「刷新開機選項」兩段的前後打點。
+  */
   EFI_BOOT_MODE  BootMode;
 
   DEBUG ((DEBUG_INFO, "PlatformBootManagerAfterConsole\n"));
@@ -1668,7 +1697,9 @@ PlatformBootManagerAfterConsole (
   TryRunningQemuKernel ();
 
   //
-  // Perform some platform specific connect sequence
+  // 連線裝置 + 刷新開機選項（量測夾在中間）
+  //   Begin/EndConnect  → 得到 ConnectAllNs、PreConnectNs
+  //   Begin/EndRefresh  → 得到 RefreshBootOptionsNs
   //
   if (FeaturePcdGet (PcdBootRestrictToFirmware)) {
     RestrictBootOptionsToFirmware ();

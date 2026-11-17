@@ -1,6 +1,9 @@
 ## @file
 #  BootTimeDashboard interactive viewer.
 #
+#  【中文】互動選單應用程式的建置清單：列出所有 .c／.h 來源，
+#  進入點是 UefiMain。在 UEFI Shell 手動執行，不呼叫 ExitBootServices。
+#
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
 
@@ -48,3 +51,6 @@
   gBootTimeOptPkgVariableGuid
   gEfiSmbiosTableGuid
   gEfiSmbios3TableGuid
+
+[Protocols]
+  gEfiBootTimeMeasurementProtocolGuid

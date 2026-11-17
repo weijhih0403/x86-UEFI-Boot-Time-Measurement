@@ -17,22 +17,23 @@ UEFI 開機流程大致是：SEC → PEI → DXE → BDS → ExitBootServices。
 
 1. 記錄 DXE／BDS 主要事件之間的時間（EndOfDxe、ReadyToBoot、ExitBootServices）。  
 2. 在 BDS 階段記錄連線裝置、刷新開機選項等步驟的開始與結束時間。  
-3. 自動測試時輸出 CSV，並可重複開機後比較兩組設定。  
-4. 提供互動式 `BootTimeDashboard`，在 UEFI Shell 查看量測與系統／記憶體資訊。
+3. 提供 `BootTimeMeasurement` Protocol：同開機內的量測服務（Publish／Get）；NVRAM 仍作快照給腳本。  
+4. 自動測試時輸出 CSV，並可重複開機後比較兩組設定。  
+5. 提供互動式 `BootTimeDashboard`，優先經 Protocol 查看本次開機量測。
 
 ---
 
 ## 怎麼運作
 
-1. `BootTimeProfilerDxe` 在 EndOfDxe、ReadyToBoot、ExitBootServices 讀取效能計數器，把各段時間寫入 UEFI 變數 `BootTimeSummary`。  
-2. `BootTimeBdsProbeLib`（接在 OVMF 的 `PlatformBootManagerLib`）在連線裝置、刷新開機選項前後記錄開始與結束時間，寫入 `BootTimeBdsBreakdown`；Profiler 在 ReadyToBoot 補上刷新開機選項後的時間紀錄；Dump 進入時補上載入路徑時間。  
-3. `BootTimeHotspotDxe` 在 ReadyToBoot 依設定決定是否收集執行時間較長的項目，寫入 `BootTimeHotspotLog`。  
-4. **自動測試**：`BootTimeDump` 讀取變數並印 CSV，接著呼叫 `ExitBootServices`；Profiler 在回呼中更新 NVRAM，並用序列埠補上最終 ExitBootServices 欄位。  
+1. `BootTimeProfilerDxe` 安裝 `BootTimeMeasurement` Protocol，在 EndOfDxe／ReadyToBoot／ExitBootServices 更新 Summary（記憶體即時副本 + NVRAM 快照）。  
+2. `BootTimeBdsProbeLib` 在連線裝置、刷新開機選項等檢查點經 Protocol `PublishBdsBreakdown`（找不到 Protocol 才直接寫 Variable）；Profiler／Dump 同樣經服務補 ReadyToBoot／LoadPath。  
+3. `BootTimeHotspotDxe` 在 ReadyToBoot 依設定收集較長項目，經 Protocol `PublishHotspotLog`。  
+4. **自動測試**：`BootTimeDump` 優先 `LocateProtocol` 讀即時資料印 CSV，找不到再讀 Variable；接著 `ExitBootServices`，Profiler 以序列埠補最終欄位。  
 5. `run_benchmark.ps1`／`compare_ab.ps1` 重複開機並比較統計。  
-6. **互動查看**：從 UEFI Shell 執行 `BootTimeDashboard.efi`（不呼叫 `ExitBootServices`）。
+6. **互動查看**：`BootTimeDashboard.efi` 優先 Protocol（頁面會標 `source=Protocol`），否則 NVRAM 備援。
 
-資料路徑（自動測試）：DXE 驅動程式／BDS 階段的時間記錄功能 → `SetVariable`（NVRAM）→ Dump `GetVariable`／印 CSV → `ExitBootServices` → Profiler 補 CSV → 主機腳本。  
-結構定義：`edk2/BootTimeOptPkg/Include/Guid/BootTimeOptPkgVariable.h`。
+資料路徑：寫端 → **Protocol（同開機服務）** → 順便 NVRAM 快照 → Dump／Dashboard／主機腳本。  
+介面：`Include/Protocol/BootTimeMeasurement.h`；結構：`Include/Guid/BootTimeOptPkgVariable.h`。
 
 ---
 
@@ -42,11 +43,11 @@ UEFI 開機流程大致是：SEC → PEI → DXE → BDS → ExitBootServices。
 
 | 模組 | 類型 | 時機 | 輸出 |
 |---|---|---|---|
-| `BootTimeProfilerDxe` | DXE 驅動程式 | EndOfDxe、ReadyToBoot、ExitBootServices | `BootTimeSummary` |
-| `BootTimeBdsProbeLib` | Library（BDS） | 連線裝置／刷新開機選項／ReadyToBoot／Dump 進入 | `BootTimeBdsBreakdown` |
-| `BootTimeHotspotDxe` | DXE 驅動程式 | ReadyToBoot（受 PCD 控制） | `BootTimeHotspotLog` |
-| `BootTimeDump` | UEFI 應用程式 | 自動測試 BOOTX64 | 序列埠 CSV（會呼叫 ExitBootServices） |
-| `BootTimeDashboard` | UEFI 應用程式 | Shell 手動執行 | 文字選單（不呼叫 ExitBootServices） |
+| `BootTimeProfilerDxe` | DXE 驅動程式 | 安裝 Protocol；EndOfDxe／RTB／EBS | Protocol + `BootTimeSummary` |
+| `BootTimeBdsProbeLib` | Library（BDS） | 連線／刷新／RTB／Dump 進入 | Protocol + `BootTimeBdsBreakdown` |
+| `BootTimeHotspotDxe` | DXE 驅動程式 | ReadyToBoot（受 PCD 控制） | Protocol + `BootTimeHotspotLog` |
+| `BootTimeDump` | UEFI 應用程式 | 自動測試 BOOTX64 | 優先 Protocol，CSV＋ExitBootServices |
+| `BootTimeDashboard` | UEFI 應用程式 | Shell 手動執行 | 優先 Protocol 文字選單 |
 
 ### BDS 階段再細分（EndOfDxe → ReadyToBoot）
 
@@ -64,17 +65,15 @@ OVMF 在 `PlatformBootManagerBeforeConsole` 內才送出 EndOfDxe。此區間再
 
 ```mermaid
 flowchart LR
-  dxe[DXE_drivers]
-  prof[BootTimeProfilerDxe]
-  hot[BootTimeHotspotDxe]
-  nvram[UEFI_Variables]
-  dump[BootTimeDump]
-  csv[Serial_CSV]
-  dxe --> prof
-  dxe --> hot
-  prof -->|"BootTimeSummary"| nvram
-  hot -->|"BootTimeHotspotLog"| nvram
-  nvram --> dump
+  writers[Profiler_BdsProbe_Hotspot]
+  proto[BootTimeMeasurement_Protocol]
+  nvram[UEFI_Variables_snapshot]
+  dump[Dump_Dashboard]
+  csv[Serial_CSV_host]
+  writers -->|"Publish"| proto
+  proto -->|"Get same-boot"| dump
+  proto -->|"SetVariable"| nvram
+  nvram -->|"fallback_or_scripts"| dump
   dump --> csv
 ```
 
@@ -213,22 +212,22 @@ UI／SMBIOS／Memory Map 邏輯參考 [FirmwareDashboardPkg](https://github.com/
 完整統計見 [`docs/AB_Results.md`](edk2/BootTimeOptPkg/docs/AB_Results.md)。  
 BDS 細分單次驗證見 [`docs/BDS_Breakdown.md`](edk2/BootTimeOptPkg/docs/BDS_Breakdown.md)。
 
-### 本次測試結果（2026-11-07，每組 10 次）
+### 本次測試結果（2026-11-17，每組 10 次，含 Protocol）
 
-目錄：`baseline-20261107-214115`、`optimized-20261107-214243`、`ab-20261107-ebs-policy-hotspot`。
+目錄：`baseline-20261117-233118`、`optimized-20261117-233009`、`ab-20261117-protocol`。
 
 | 測量區間 | Baseline 平均 | Optimized 平均 | 差值 |
 |---|---:|---:|---:|
-| EndOfDxe → ReadyToBoot | 718.43 ms | 676.94 ms | −41.49 ms |
-| Driver 入口 → ExitBootServices | 1,527.85 ms | 1,492.54 ms | −35.31 ms |
+| EndOfDxe → ReadyToBoot | 639.79 ms | 656.88 ms | +17.09 ms |
+| Driver 入口 → ExitBootServices | 1,432.01 ms | 1,473.40 ms | +41.39 ms |
 
-在本次各 10 次的 QEMU 測試中，啟用額外效能紀錄的設定，測得 EndOfDxe 到 ReadyToBoot 的平均時間約減少 41.49 毫秒。不過，這兩組設定並沒有直接修改開機執行流程，因此結果只能說明此次測試觀察到的時間差異，不能直接證明已完成開機加速。
+啟用額外效能紀錄的那一組，本次測得時間略高，符合「多做紀錄有成本」；**不是**開機加速。Protocol 改進的是同開機內的資料介面。
 
 補充：
 
-- baseline：`PolicyEnabled=0, HotspotEnabled=0`；optimized：`1,1`；全部 `ExitBootServicesReached=1`  
-- `EndOfDxeToReadyToBootNs` 中位數：baseline 約 713.7 ms，optimized 約 677.5 ms（差約 36.2 ms）  
-- baseline 同組 Max−Min 約 93.9 ms（變異本身就不小）
+- baseline：`PolicyEnabled=0, HotspotEnabled=0`；optimized：`1,1`  
+- optimized 有 HotspotRank1（約 643 ms，多為階段備援）  
+- BDS 細分中 PreConnect 仍最大（約 399–401 ms）
 
 ---
 
@@ -237,5 +236,6 @@ BDS 細分單次驗證見 [`docs/BDS_Breakdown.md`](edk2/BootTimeOptPkg/docs/BDS
 1. QEMU TCG 會受執行 QEMU 的電腦目前使用情況影響，不宜跨機或跨日直接比絕對時間。  
 2. `BootTimeDump` 會呼叫 `ExitBootServices`，但不載入作業系統；`BootTimeDashboard` 不呼叫 ExitBootServices。  
 3. 執行時間較長的項目紀錄，常常是無法取得詳細紀錄時改用階段時間作為分析依據，不是每個驅動程式的詳細排名。  
-4. NVRAM 量測紀錄可能來自前次開機；Dashboard 會標示此限制。  
-5. `optimized`／Policy 只控制是否啟用額外紀錄，不代表已完成開機加速。
+4. Dashboard／Dump 優先 Protocol（本次開機）；NVRAM 備援可能來自前次開機。  
+5. `optimized`／Policy 只控制是否啟用額外紀錄，不代表已完成開機加速。  
+6. ExitBootServices 之後不可再用 LocateProtocol；最終腳本仍依 Variable／序列埠 CSV。

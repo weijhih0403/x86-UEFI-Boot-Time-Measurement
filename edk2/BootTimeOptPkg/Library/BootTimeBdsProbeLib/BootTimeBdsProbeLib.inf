@@ -1,6 +1,10 @@
 ## @file
 #  BDS checkpoint probes for boot-time breakdown.
 #
+#  【中文說明】這是「函式庫」的建置清單（.inf），不是執行邏輯本身。
+#  告訴 EDK 建置系統：原始碼是 BootTimeBdsProbeLib.c，可被 DXE 驅動
+#  與 UEFI 應用程式連結使用。真正計時程式在 .c 檔。
+#
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
 
@@ -23,7 +27,11 @@
   BaseMemoryLib
   DebugLib
   TimerLib
+  UefiBootServicesTableLib
   UefiRuntimeServicesTableLib
 
 [Guids]
   gBootTimeOptPkgVariableGuid
+
+[Protocols]
+  gEfiBootTimeMeasurementProtocolGuid

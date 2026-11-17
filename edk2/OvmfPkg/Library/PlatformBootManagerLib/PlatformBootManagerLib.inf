@@ -1,6 +1,9 @@
 ## @file
 #  Platform BDS customizations library.
 #
+#  【中文】OVMF 平台開機管理函式庫的建置清單（BdsPlatform.c 等）。
+#  本專案在此連結 BootTimeBdsProbeLib，以便在 Connect／Refresh 打點。
+#
 #  Copyright (c) 2007 - 2019, Intel Corporation. All rights reserved.<BR>
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #

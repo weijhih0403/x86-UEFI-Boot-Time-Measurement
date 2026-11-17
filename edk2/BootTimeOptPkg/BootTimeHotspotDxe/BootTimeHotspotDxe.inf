@@ -3,6 +3,9 @@
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
+#  【中文說明】BootTimeHotspotDxe 是 DXE 驅動：在 ReadyToBoot 時收集各模組耗時，
+#  排出「最慢前 N 名」並寫進 NVRAM（關機後仍保留）；若取不到細部資料，就改記大階段時間作為備案。
+#
 ##
 
 [Defines]
@@ -37,8 +40,12 @@
 [Guids]
   gEfiEndOfDxeEventGroupGuid
   gEfiEventReadyToBootGuid
+  gEfiGlobalVariableGuid
   gBootTimeOptPkgVariableGuid
   gPerformanceExProtocolGuid
+
+[Protocols]
+  gEfiBootTimeMeasurementProtocolGuid
 
 [Pcd]
   gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnablePolicy

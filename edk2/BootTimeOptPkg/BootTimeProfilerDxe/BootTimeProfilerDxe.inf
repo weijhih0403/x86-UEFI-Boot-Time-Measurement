@@ -1,3 +1,10 @@
+## @file
+#  BootTimeProfilerDxe：開機計時驅動（DXE driver，沒有 main，由 ENTRY_POINT 指定的函式開始）。
+#  在 EndOfDxe、ReadyToBoot、ExitBootServices 三個時間點讀硬體計時器（tick），
+#  換算成奈秒後寫進 NVRAM（關機後仍保留的變數），再由 BootTimeDump 讀出。
+#  本 .inf 描述模組的基本資訊、原始檔、相依套件、函式庫與 GUID。
+##
+
 [Defines]
   INF_VERSION                    = 0x0001001A
   BASE_NAME                      = BootTimeProfilerDxe
@@ -31,6 +38,9 @@
   gEfiEventExitBootServicesGuid
   gEfiGlobalVariableGuid
   gBootTimeOptPkgVariableGuid
+
+[Protocols]
+  gEfiBootTimeMeasurementProtocolGuid
 
 [Depex]
   TRUE

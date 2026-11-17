@@ -1,3 +1,17 @@
+<#
+  run_benchmark.ps1（主機端自動化測試腳本）
+
+  給只會 C／剛接觸腳本的人：
+    這不是 UEFI 裡的 .c，而是在 Windows 上跑的 PowerShell。
+    流程像「自動考官」：
+      1)（可選）呼叫 edk2 建出 OVMF 韌體
+      2) 把 BootTimeDump.efi 放成開機檔 BOOTX64.EFI
+      3) 用 QEMU 開機 N 次，從序列埠抓 CSV
+      4) 算出平均／中位數等，寫到 results\ 資料夾
+
+  -Mode baseline  → 少開額外紀錄
+  -Mode optimized → 開啟額外效能紀錄（不是「已經加速」的意思）
+#>
 Param(
   [Parameter(Mandatory = $true)]
   [string]$Edk2Root,

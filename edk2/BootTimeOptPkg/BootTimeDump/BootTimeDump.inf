@@ -3,6 +3,9 @@
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
+#  【中文說明】BootTimeDump 是 UEFI 應用程式（像 C 的 main，進入點為 UefiMain）：
+#  讀出 NVRAM 裡的開機計時資料並印成 CSV，最後呼叫 ExitBootServices 讓 Profiler 記錄最後階段。
+#
 ##
 
 [Defines]
@@ -37,6 +40,9 @@
 
 [Guids]
   gBootTimeOptPkgVariableGuid
+
+[Protocols]
+  gEfiBootTimeMeasurementProtocolGuid
 
 [Pcd]
   gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnablePolicy

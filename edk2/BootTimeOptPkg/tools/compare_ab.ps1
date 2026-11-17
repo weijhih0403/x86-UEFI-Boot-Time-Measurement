@@ -1,3 +1,10 @@
+<#
+  compare_ab.ps1（比較兩組統計）
+
+  輸入：run_benchmark.ps1 產出的 baseline_stats.csv 與 optimized_stats.csv
+  輸出：兩組各項指標的差值／百分比，方便看「多開紀錄」後數字差多少。
+  注意：差值 ≠ 證明開機被加速；兩組主要差在是否啟用額外量測。
+#>
 Param(
   [Parameter(Mandatory = $true)]
   [string]$BaselineStatsCsv,

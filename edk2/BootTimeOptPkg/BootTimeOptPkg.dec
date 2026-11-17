@@ -1,3 +1,9 @@
+##
+# BootTimeOptPkg.dec ─ 套件「身分證」
+# 【中文】宣告本套件的 GUID、Include 路徑、以及建置期常數（PCD）。
+# 其他模組要認得 gBootTimeOptPkgVariableGuid 或那兩個開關，靠這份檔。
+##
+
 [Defines]
   DEC_SPECIFICATION              = 0x0001001A
   PACKAGE_NAME                   = BootTimeOptPkg
@@ -8,11 +14,17 @@
   Include
 
 [Guids]
+  # NVRAM 變數擁有者 GUID（跟變數名稱一起當唯一鑰匙）
   gBootTimeOptPkgVariableGuid    = { 0x8a245d0d, 0x4d47, 0x4f6f, { 0x94, 0x7f, 0x38, 0x65, 0x0e, 0xc8, 0x6a, 0x20 } }
+  # PCD 命名空間 GUID
   gBootTimeOptPkgTokenSpaceGuid  = { 0x2da8769a, 0x5a3c, 0x4f4f, { 0xa6, 0x58, 0x16, 0xab, 0x1d, 0x1b, 0x8d, 0x31 } }
 
+[Protocols]
+  # 同開機量測服務：Publish／Get；NVRAM 仍由服務內部寫快照給 Dump／腳本
+  gEfiBootTimeMeasurementProtocolGuid = { 0x7c4e9a21, 0x3f8b, 0x4d62, { 0x9e, 0x15, 0xa8, 0xc3, 0x4f, 0x2d, 0xb1, 0x70 } }
+
 [PcdsFixedAtBuild]
-  # A/B arm switch. Must be TRUE together with EnableHotspot for ReadyToBoot collection.
+  # 與 Hotspot 同時 TRUE，ReadyToBoot 才收集較細項目（A/B 其中一臂）
   gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnablePolicy|FALSE|BOOLEAN|0x00000001
-  # Fine-grained hotspot collector enable. Collection requires Policy AND Hotspot.
+  # 是否啟用 Hotspot 收集；需與 Policy 同時為 TRUE
   gBootTimeOptPkgTokenSpaceGuid.PcdBootTimeOptEnableHotspot|TRUE|BOOLEAN|0x00000002
