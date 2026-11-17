@@ -13,6 +13,9 @@ edk2/BootTimeOptPkg/results/
 *.pdb
 *.map
 
+# Local docs (keep on disk, do not publish to GitHub)
+edk2/BootTimeOptPkg/docs/
+
 # Logs and temp
 *.log
 *.tmp

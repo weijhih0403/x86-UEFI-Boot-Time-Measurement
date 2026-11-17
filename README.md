@@ -110,8 +110,7 @@ edk2/
     Include/Guid/
     Include/Library/
     tools/                 # run_benchmark.ps1、compare_ab.ps1
-    docs/AB_Results.md
-    docs/BDS_Breakdown.md
+    # docs/ 僅本機，不進 GitHub
   OvmfPkg/
     Library/PlatformBootManagerLib/  # BDS 時間記錄
     OvmfPkgX64.dsc
@@ -209,8 +208,7 @@ UI／SMBIOS／Memory Map 邏輯參考 [FirmwareDashboardPkg](https://github.com/
 | `PolicyEnabled`／`HotspotEnabled` | 建置時的 PCD |
 | `rank,...` | 有收集時的項目列；baseline 常為 `hotspot,error` |
 
-完整統計見 [`docs/AB_Results.md`](edk2/BootTimeOptPkg/docs/AB_Results.md)。  
-BDS 細分單次驗證見 [`docs/BDS_Breakdown.md`](edk2/BootTimeOptPkg/docs/BDS_Breakdown.md)。
+更細的本地紀錄（若有）在 `edk2/BootTimeOptPkg/docs/`（此目錄不推送到 GitHub）。
 
 ### 本次測試結果（2026-11-17，每組 10 次，含 Protocol）
 
