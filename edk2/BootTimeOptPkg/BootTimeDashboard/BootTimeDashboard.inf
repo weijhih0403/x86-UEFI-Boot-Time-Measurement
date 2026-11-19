@@ -46,6 +46,8 @@
   MemoryAllocationLib
   PrintLib
   DebugLib
+  BootTimeBdsProbeLib
+  TimerLib
 
 [Guids]
   gBootTimeOptPkgVariableGuid

@@ -30,6 +30,8 @@
 #define BOOT_TIME_LAST_BOOT_OPTION_VAR_NAME   L"LastSuccessfulBootOption"
 #define BOOT_TIME_HOTSPOT_LOG_VAR_NAME        L"BootTimeHotspotLog"
 #define BOOT_TIME_BDS_BREAKDOWN_VAR_NAME      L"BootTimeBdsBreakdown"
+/* 上次「有走到 ExitBootServices」的完整 Summary；給 Dashboard 互動模式顯示 EBS */
+#define BOOT_TIME_LAST_COMPLETE_SUMMARY_VAR_NAME  L"BootTimeLastCompleteSummary"
 
 /*
   ----- 簽名與版本 -----
@@ -43,7 +45,7 @@
 #define BOOT_TIME_HOTSPOT_VERSION    1
 #define BOOT_TIME_HOTSPOT_MAX_RANK   5   /* Hotspot 最多排名前幾名 */
 #define BOOT_TIME_BDS_BREAKDOWN_SIGNATURE  SIGNATURE_32('B','T','B','D')
-#define BOOT_TIME_BDS_BREAKDOWN_VERSION    1
+#define BOOT_TIME_BDS_BREAKDOWN_VERSION    2
 
 /*
   ----- 大階段有沒有「發生過」-----
@@ -142,12 +144,29 @@ typedef struct {
     Dump 程式開始執行
 
   Flags：跟 PHASE 一樣是位元旗標，某位有設 = 那段有量到。
+
+  PreConnect 再細分（Version >= 2）：
+    EndOfDxe
+      | ConsolePrepNs      BeforeConsole 收尾（主控台／ReadyToLock／延遲映像等）
+      | PreConnectOtherNs  其餘（含 Before→After 框架縫、NvVars、BootMode 等）
+      | LogoNs             BootLogoEnableLogo
+      | PciAcpiNs          PciAcpiInitialization
+      | BootOrderNs        StoreQemuBootOrder + TryRunningQemuKernel
+      v
+    BeginConnect
 */
 #define BOOT_TIME_BDS_FLAG_END_OF_DXE              0x0001
 #define BOOT_TIME_BDS_FLAG_CONNECT                 0x0002
 #define BOOT_TIME_BDS_FLAG_REFRESH                 0x0004
 #define BOOT_TIME_BDS_FLAG_READY_TO_BOOT           0x0008
 #define BOOT_TIME_BDS_FLAG_LOAD_PATH               0x0010
+#define BOOT_TIME_BDS_FLAG_PRECONNECT_DETAIL       0x0020
+
+/* PreConnect 細分步驟（給 BootTimeBdsMarkPreConnectStep 用） */
+#define BOOT_TIME_BDS_PRE_CONSOLE_PREP   1
+#define BOOT_TIME_BDS_PRE_LOGO           2
+#define BOOT_TIME_BDS_PRE_PCI_ACPI       3
+#define BOOT_TIME_BDS_PRE_BOOT_ORDER     4
 
 typedef struct {
   UINT32  Signature;
@@ -159,7 +178,7 @@ typedef struct {
   UINT64  ConnectAllNs;                 /* 連線裝置本身 */
   UINT64  RefreshBootOptionsNs;         /* 刷新開機選項清單 */
   UINT64  PostRefreshToReadyToBootNs;   /* 刷新完到ReadyToBoot */
-  UINT64  LoadPathNs;                   /* ReadyToBoot到Dump進入應用程式*/
+  UINT64  LoadPathNs;                   /* ReadyToBoot到Dump／Dashboard進入*/
 
   /*
     ----- 原始計數器讀數（tick）-----
@@ -173,6 +192,14 @@ typedef struct {
   UINT64  ConnectEndPerfTick;
   UINT64  RefreshEndPerfTick;
   UINT64  ReadyToBootPerfTick;
+
+  /* ----- PreConnect 細分（Version 2）----- */
+  UINT64  ConsolePrepNs;       /* EndOfDxe → BeforeConsole 結束 */
+  UINT64  LogoNs;              /* BootLogoEnableLogo */
+  UINT64  PciAcpiNs;           /* PciAcpiInitialization */
+  UINT64  BootOrderNs;         /* StoreQemuBootOrder + TryRunningQemuKernel */
+  UINT64  PreConnectOtherNs;   /* PreConnect 其餘（縫隙／NvVars 等） */
+  UINT64  PreConnectStepTick;  /* 上一個細分打點的 tick（內部用） */
 } BOOT_TIME_BDS_BREAKDOWN;
 
 /*

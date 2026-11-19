@@ -38,6 +38,7 @@ STATIC UINT64  mConnectEnd      = 0;
 STATIC UINT64  mRefreshStart    = 0;
 STATIC UINT64  mRefreshEnd      = 0;
 STATIC UINT64  mReadyToBootTick = 0;
+STATIC UINT64  mPreWorkStart    = 0;
 
 STATIC
 UINT64
@@ -205,11 +206,82 @@ BootTimeBdsMarkEndOfDxe (
            );
   }
 
+  mPreWorkStart = 0;
   ZeroMem (&B, sizeof (B));
-  B.Signature        = BOOT_TIME_BDS_BREAKDOWN_SIGNATURE;
-  B.Version          = BOOT_TIME_BDS_BREAKDOWN_VERSION;
-  B.Flags            = BOOT_TIME_BDS_FLAG_END_OF_DXE;
-  B.EndOfDxePerfTick = mEndOfDxeTick;
+  B.Signature          = BOOT_TIME_BDS_BREAKDOWN_SIGNATURE;
+  B.Version            = BOOT_TIME_BDS_BREAKDOWN_VERSION;
+  B.Flags              = BOOT_TIME_BDS_FLAG_END_OF_DXE;
+  B.EndOfDxePerfTick   = mEndOfDxeTick;
+  B.PreConnectStepTick = mEndOfDxeTick;
+  PersistBreakdown (&B);
+}
+
+VOID
+EFIAPI
+BootTimeBdsMarkConsolePrepDone (
+  VOID
+  )
+{
+  BOOT_TIME_BDS_BREAKDOWN  B;
+  UINT64                   Now;
+
+  Now = GetPerformanceCounter ();
+  if (!LoadExisting (&B)) {
+    ZeroMem (&B, sizeof (B));
+    B.Signature        = BOOT_TIME_BDS_BREAKDOWN_SIGNATURE;
+    B.Version          = BOOT_TIME_BDS_BREAKDOWN_VERSION;
+    B.EndOfDxePerfTick = mEndOfDxeTick;
+  }
+
+  B.Flags              |= BOOT_TIME_BDS_FLAG_PRECONNECT_DETAIL;
+  B.ConsolePrepNs       = DeltaNsSafe (B.EndOfDxePerfTick, Now);
+  B.PreConnectStepTick  = Now;
+  PersistBreakdown (&B);
+}
+
+VOID
+EFIAPI
+BootTimeBdsBeginPreConnectWork (
+  VOID
+  )
+{
+  mPreWorkStart = GetPerformanceCounter ();
+}
+
+VOID
+EFIAPI
+BootTimeBdsEndPreConnectWork (
+  IN UINT32  Step
+  )
+{
+  BOOT_TIME_BDS_BREAKDOWN  B;
+  UINT64                   Now;
+  UINT64                   Delta;
+
+  Now = GetPerformanceCounter ();
+  if ((mPreWorkStart == 0) || !LoadExisting (&B)) {
+    return;
+  }
+
+  Delta         = DeltaNsSafe (mPreWorkStart, Now);
+  mPreWorkStart = 0;
+
+  switch (Step) {
+    case BOOT_TIME_BDS_PRE_LOGO:
+      B.LogoNs = Delta;
+      break;
+    case BOOT_TIME_BDS_PRE_PCI_ACPI:
+      B.PciAcpiNs = Delta;
+      break;
+    case BOOT_TIME_BDS_PRE_BOOT_ORDER:
+      B.BootOrderNs = Delta;
+      break;
+    default:
+      return;
+  }
+
+  B.Flags              |= BOOT_TIME_BDS_FLAG_PRECONNECT_DETAIL;
+  B.PreConnectStepTick  = Now;
   PersistBreakdown (&B);
 }
 
@@ -219,7 +291,26 @@ BootTimeBdsBeginConnect (
   VOID
   )
 {
+  BOOT_TIME_BDS_BREAKDOWN  B;
+  UINT64                   NamedSum;
+
   mConnectStart = GetPerformanceCounter ();
+
+  if (LoadExisting (&B)) {
+    B.PreConnectNs = DeltaNsSafe (
+                       (B.EndOfDxePerfTick != 0) ? B.EndOfDxePerfTick : mEndOfDxeTick,
+                       mConnectStart
+                       );
+    NamedSum = B.ConsolePrepNs + B.LogoNs + B.PciAcpiNs + B.BootOrderNs;
+    if (B.PreConnectNs > NamedSum) {
+      B.PreConnectOtherNs = B.PreConnectNs - NamedSum;
+    } else {
+      B.PreConnectOtherNs = 0;
+    }
+
+    B.Flags |= BOOT_TIME_BDS_FLAG_PRECONNECT_DETAIL;
+    PersistBreakdown (&B);
+  }
 }
 
 VOID
@@ -238,12 +329,15 @@ BootTimeBdsEndConnect (
     B.Version   = BOOT_TIME_BDS_BREAKDOWN_VERSION;
   }
 
-  B.Flags                 |= BOOT_TIME_BDS_FLAG_END_OF_DXE | BOOT_TIME_BDS_FLAG_CONNECT;
-  B.EndOfDxePerfTick       = (B.EndOfDxePerfTick != 0) ? B.EndOfDxePerfTick : mEndOfDxeTick;
-  B.ConnectStartPerfTick   = mConnectStart;
-  B.ConnectEndPerfTick     = mConnectEnd;
-  B.PreConnectNs           = DeltaNsSafe (B.EndOfDxePerfTick, mConnectStart);
-  B.ConnectAllNs           = DeltaNsSafe (mConnectStart, mConnectEnd);
+  B.Flags                |= BOOT_TIME_BDS_FLAG_END_OF_DXE | BOOT_TIME_BDS_FLAG_CONNECT;
+  B.EndOfDxePerfTick      = (B.EndOfDxePerfTick != 0) ? B.EndOfDxePerfTick : mEndOfDxeTick;
+  B.ConnectStartPerfTick  = mConnectStart;
+  B.ConnectEndPerfTick    = mConnectEnd;
+  if (B.PreConnectNs == 0) {
+    B.PreConnectNs = DeltaNsSafe (B.EndOfDxePerfTick, mConnectStart);
+  }
+
+  B.ConnectAllNs = DeltaNsSafe (mConnectStart, mConnectEnd);
   PersistBreakdown (&B);
 }
 

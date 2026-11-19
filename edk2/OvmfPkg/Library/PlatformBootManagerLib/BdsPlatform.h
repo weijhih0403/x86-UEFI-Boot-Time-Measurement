@@ -67,85 +67,16 @@ extern ACPI_HID_DEVICE_PATH      gPnp16550ComPortDeviceNode;
 extern UART_DEVICE_PATH          gUartDeviceNode;
 extern VENDOR_DEVICE_PATH        gTerminalTypeDeviceNode;
 
-#define PCI_DEVICE_PATH_NODE(Func, Dev) \
-  { \
-    { \
-      HARDWARE_DEVICE_PATH, \
-      HW_PCI_DP, \
-      { \
-        (UINT8) (sizeof (PCI_DEVICE_PATH)), \
-        (UINT8) ((sizeof (PCI_DEVICE_PATH)) >> 8) \
-      } \
-    }, \
-    (Func), \
-    (Dev) \
-  }
 
-#define PNPID_DEVICE_PATH_NODE(PnpId) \
-  { \
-    { \
-      ACPI_DEVICE_PATH, \
-      ACPI_DP, \
-      { \
-        (UINT8) (sizeof (ACPI_HID_DEVICE_PATH)), \
-        (UINT8) ((sizeof (ACPI_HID_DEVICE_PATH)) >> 8) \
-      }, \
-    }, \
-    EISA_PNP_ID((PnpId)), \
-    0 \
-  }
-
-#define gPciIsaBridge \
-  PCI_DEVICE_PATH_NODE(0, 0x1f)
-
-#define gP2PBridge \
-  PCI_DEVICE_PATH_NODE(0, 0x1e)
-
-#define gPnpPs2Keyboard \
-  PNPID_DEVICE_PATH_NODE(0x0303)
-
-#define gPnp16550ComPort \
-  PNPID_DEVICE_PATH_NODE(0x0501)
-
-#define gUart \
-  { \
-    { \
-      MESSAGING_DEVICE_PATH, \
-      MSG_UART_DP, \
-      { \
-        (UINT8) (sizeof (UART_DEVICE_PATH)), \
-        (UINT8) ((sizeof (UART_DEVICE_PATH)) >> 8) \
-      } \
-    }, \
-    0, \
-    115200, \
-    8, \
-    1, \
-    1 \
-  }
-
-#define gVtUtf8Terminal \
-  { \
-    { \
-      MESSAGING_DEVICE_PATH, \
-      MSG_VENDOR_DP, \
-      { \
-        (UINT8) (sizeof (VENDOR_DEVICE_PATH)), \
-        (UINT8) ((sizeof (VENDOR_DEVICE_PATH)) >> 8) \
-      } \
-    }, \
-    DEVICE_PATH_MESSAGING_VT_UTF8 \
-  }
-
-#define gEndEntire \
-  { \
-    END_DEVICE_PATH_TYPE, \
-    END_ENTIRE_DEVICE_PATH_SUBTYPE, \
-    { \
-      END_DEVICE_PATH_LENGTH, \
-      0 \
-    } \
-  }
+#define PCI_DEVICE_PATH_NODE(Func, Dev)  { { HARDWARE_DEVICE_PATH, HW_PCI_DP, { (UINT8)(sizeof (PCI_DEVICE_PATH)), (UINT8)((sizeof (PCI_DEVICE_PATH)) >> 8) } }, (Func), (Dev) }
+#define PNPID_DEVICE_PATH_NODE(PnpId)    { { ACPI_DEVICE_PATH, ACPI_DP, { (UINT8)(sizeof (ACPI_HID_DEVICE_PATH)), (UINT8)((sizeof (ACPI_HID_DEVICE_PATH)) >> 8) }, }, EISA_PNP_ID((PnpId)), 0 }
+#define gPciIsaBridge                    PCI_DEVICE_PATH_NODE(0, 0x1f)
+#define gP2PBridge                       PCI_DEVICE_PATH_NODE(0, 0x1e)
+#define gPnpPs2Keyboard                  PNPID_DEVICE_PATH_NODE(0x0303)
+#define gPnp16550ComPort                 PNPID_DEVICE_PATH_NODE(0x0501)
+#define gUart                            { { MESSAGING_DEVICE_PATH, MSG_UART_DP, { (UINT8)(sizeof (UART_DEVICE_PATH)), (UINT8)((sizeof (UART_DEVICE_PATH)) >> 8) } }, 0, 115200, 8, 1, 1 }
+#define gVtUtf8Terminal                  { { MESSAGING_DEVICE_PATH, MSG_VENDOR_DP, { (UINT8)(sizeof (VENDOR_DEVICE_PATH)), (UINT8)((sizeof (VENDOR_DEVICE_PATH)) >> 8) } }, DEVICE_PATH_MESSAGING_VT_UTF8 }
+#define gEndEntire                       { END_DEVICE_PATH_TYPE, END_ENTIRE_DEVICE_PATH_SUBTYPE, { END_DEVICE_PATH_LENGTH, 0 } }
 
 #define PCI_CLASS_SCC        0x07
 #define PCI_SUBCLASS_SERIAL  0x00
@@ -153,9 +84,14 @@ extern VENDOR_DEVICE_PATH        gTerminalTypeDeviceNode;
 #define IS_PCI_16550SERIAL(_p)  IS_CLASS3 (_p, PCI_CLASS_SCC, PCI_SUBCLASS_SERIAL, PCI_IF_16550)
 #define IS_PCI_ISA_PDECODE(_p)  IS_CLASS3 (_p, PCI_CLASS_BRIDGE, PCI_CLASS_BRIDGE_ISA_PDECODE, 0)
 
+/*
+  平台「主控台要連哪個裝置」的一筆設定。
+  DevicePath  ：指向裝置路徑（告訴韌體連哪條裝置，例如鍵盤／序列埠）。
+  ConnectType ：用途為flag，用下面的 CONSOLE_IN／CONSOLE_OUT／STD_ERROR 組合（用 |）。
+*/
 typedef struct {
-  EFI_DEVICE_PATH_PROTOCOL    *DevicePath;
-  UINTN                       ConnectType;
+  EFI_DEVICE_PATH_PROTOCOL    *DevicePath;   /* 要連線的裝置路徑 */
+  UINTN                       ConnectType;   /* 當輸入／輸出／錯誤輸出用 */
 } PLATFORM_CONSOLE_CONNECT_ENTRY;
 
 #define CONSOLE_OUT  BIT0

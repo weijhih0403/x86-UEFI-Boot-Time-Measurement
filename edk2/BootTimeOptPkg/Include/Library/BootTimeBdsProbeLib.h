@@ -1,7 +1,7 @@
 /** @file
-  BDS 碼表工具的「函式目錄」（只有宣告，沒有實作）。
+  BDS 碼表工具的函式目錄（只有宣告）。
 
-  實作在 Library/BootTimeBdsProbeLib/BootTimeBdsProbeLib.c。
+  實作在Library/BootTimeBdsProbeLib/BootTimeBdsProbeLib.c。
   其他模組 #include 本檔後，就可以呼叫下面這些函式。
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -10,10 +10,36 @@
 #ifndef BOOT_TIME_BDS_PROBE_LIB_H_
 #define BOOT_TIME_BDS_PROBE_LIB_H_
 
-/** EndOfDxe 送出後呼叫：細分量測的起點。 */
+/** EndOfDxe 送出後呼叫：細分測量的起點。 */
 VOID
 EFIAPI
 BootTimeBdsMarkEndOfDxe (VOID);
+
+/**
+  BeforeConsole 結束時呼叫：ConsolePrepNs = EndOfDxe → 現在。
+**/
+VOID
+EFIAPI
+BootTimeBdsMarkConsolePrepDone (
+  VOID
+  );
+
+/** 包住一段 PreConnect 工作的開始（與 End 成對）。 */
+VOID
+EFIAPI
+BootTimeBdsBeginPreConnectWork (
+  VOID
+  );
+
+/**
+  包住一段 PreConnect 工作的結束。
+  Step：BOOT_TIME_BDS_PRE_LOGO／PCI_ACPI／BOOT_ORDER。
+**/
+VOID
+EFIAPI
+BootTimeBdsEndPreConnectWork (
+  IN UINT32  Step
+  );
 
 /** 連線裝置開始前呼叫。 */
 VOID

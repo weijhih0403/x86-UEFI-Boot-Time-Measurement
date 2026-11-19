@@ -55,6 +55,8 @@
 #include <Library/UefiBootServicesTableLib.h>       // 提供全域變數 gST / gBS / gImageHandle
 #include <Library/UefiLib.h>                        // 提供 Print()，類似 printf()
 
+#include <Library/BootTimeBdsProbeLib.h>            // 進入時標記 LoadPath
+
 #include "Common/BdTypes.h"                         // 本專案自訂：選單項目型別 BD_MENU_ITEM
 #include "Pages/BootTimePage.h"                     // 「開機時間」頁面函式宣告
 #include "Pages/MemoryMapPage.h"                    // 「記憶體地圖」頁面函式宣告
@@ -141,6 +143,9 @@ UefiMain (
   if ((gST == NULL) || (gST->ConOut == NULL) || (gST->ConIn == NULL)) {
     return EFI_UNSUPPORTED;
   }
+
+  // 與 Dump 相同：一進應用就記 LoadPath（ReadyToBoot → 本程式進入）
+  BootTimeBdsMarkLoadPathAtAppEntry ();
 
   // 先記住目前螢幕的顏色/游標狀態，離開時要還原，避免影響 UEFI Shell。
   BdUiSaveConsoleState ();

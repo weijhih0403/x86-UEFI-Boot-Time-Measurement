@@ -17,6 +17,8 @@
   和本專案「量測」直接有關的只有幾處：呼叫 BootTimeBdsProbeLib
   在關鍵步驟按下碼表，例如：
     - EndOfDxe 送出後 → BootTimeBdsMarkEndOfDxe()
+    - BeforeConsole 結束 → BootTimeBdsMarkConsolePrepDone()
+    - Logo／PciAcpi／BootOrder → Begin/EndPreConnectWork()
     - Connect 前後   → BootTimeBdsBegin/EndConnect()
     - Refresh 前後   → BootTimeBdsBegin/EndRefresh()
 
@@ -37,6 +39,7 @@
 #include <Library/QemuFwCfgSimpleParserLib.h>
 #include <Library/PlatformBootManagerCommonLib.h>
 #include <Library/BootTimeBdsProbeLib.h>
+#include <Guid/BootTimeOptPkgVariable.h>
 
 //
 // Global data
@@ -376,6 +379,9 @@ PlatformBootManagerBeforeConsole (
     ConnectVirtioPciRng,
     NULL
     );
+
+  /* PreConnect 細分：BeforeConsole 收尾（主控台等）到此結束 */
+  BootTimeBdsMarkConsolePrepDone ();
 }
 
 EFI_STATUS
@@ -1679,22 +1685,24 @@ PlatformBootManagerAfterConsole (
   //
   // Logo show
   //
+  BootTimeBdsBeginPreConnectWork ();
   BootLogoEnableLogo ();
+  BootTimeBdsEndPreConnectWork (BOOT_TIME_BDS_PRE_LOGO);
 
   //
   // Set PCI Interrupt Line registers and ACPI SCI_EN
   //
+  BootTimeBdsBeginPreConnectWork ();
   PciAcpiInitialization ();
+  BootTimeBdsEndPreConnectWork (BOOT_TIME_BDS_PRE_PCI_ACPI);
 
   //
-  // Write qemu bootorder to efi variables
+  // Write qemu bootorder to efi variables + optional -kernel
   //
+  BootTimeBdsBeginPreConnectWork ();
   StoreQemuBootOrder ();
-
-  //
-  // Process QEMU's -kernel command line option
-  //
   TryRunningQemuKernel ();
+  BootTimeBdsEndPreConnectWork (BOOT_TIME_BDS_PRE_BOOT_ORDER);
 
   //
   // 連線裝置 + 刷新開機選項（量測夾在中間）

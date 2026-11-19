@@ -399,6 +399,23 @@ PersistSummary (
   // 經 Publish：更新服務記憶體 + 寫 NVRAM（不經 Locate，直接呼叫本驅動實作）
   Status = BootTimeMeasurementPublishSummary (&mMeasurementProtocol, &Summary);
   DEBUG ((DEBUG_INFO, "BootTimeProfilerDxe: PersistSummary -> %r\n", Status));
+
+  /*
+    若本次已走到 ExitBootServices，另存一份「上次完整量測」。
+    Dashboard 互動模式不會呼叫 EBS，仍可顯示這份數字（並標明來源）。
+  */
+  if ((Summary.Reserved0 & BOOT_TIME_PHASE_EXIT_BOOT_SERVICES) != 0) {
+    Status = gRT->SetVariable (
+                    BOOT_TIME_LAST_COMPLETE_SUMMARY_VAR_NAME,
+                    &gBootTimeOptPkgVariableGuid,
+                    EFI_VARIABLE_NON_VOLATILE |
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS |
+                    EFI_VARIABLE_RUNTIME_ACCESS,
+                    sizeof (Summary),
+                    &Summary
+                    );
+    DEBUG ((DEBUG_INFO, "BootTimeProfilerDxe: LastCompleteSummary -> %r\n", Status));
+  }
 }
 
 // ---------------------------------------------------------------------

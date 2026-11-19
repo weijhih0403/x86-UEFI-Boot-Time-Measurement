@@ -260,6 +260,11 @@ DumpBdsBreakdown (
 
   if (Csv) {
     Print (L"bds,PreConnectNs,%Lu\n", B.PreConnectNs);
+    Print (L"bds,ConsolePrepNs,%Lu\n", B.ConsolePrepNs);
+    Print (L"bds,LogoNs,%Lu\n", B.LogoNs);
+    Print (L"bds,PciAcpiNs,%Lu\n", B.PciAcpiNs);
+    Print (L"bds,BootOrderNs,%Lu\n", B.BootOrderNs);
+    Print (L"bds,PreConnectOtherNs,%Lu\n", B.PreConnectOtherNs);
     Print (L"bds,ConnectAllNs,%Lu\n", B.ConnectAllNs);
     Print (L"bds,RefreshBootOptionsNs,%Lu\n", B.RefreshBootOptionsNs);
     Print (L"bds,PostRefreshToReadyToBootNs,%Lu\n", B.PostRefreshToReadyToBootNs);
@@ -268,6 +273,11 @@ DumpBdsBreakdown (
   } else {
     Print (L"=== BootTimeBdsBreakdown ===\n");
     Print (L"PreConnect:                    %Lu ns\n", B.PreConnectNs);
+    Print (L"  ConsolePrep:                 %Lu ns\n", B.ConsolePrepNs);
+    Print (L"  Logo:                        %Lu ns\n", B.LogoNs);
+    Print (L"  PciAcpi:                     %Lu ns\n", B.PciAcpiNs);
+    Print (L"  BootOrder:                   %Lu ns\n", B.BootOrderNs);
+    Print (L"  PreConnectOther:             %Lu ns\n", B.PreConnectOtherNs);
     Print (L"ConnectAll:                    %Lu ns\n", B.ConnectAllNs);
     Print (L"RefreshBootOptions:            %Lu ns\n", B.RefreshBootOptionsNs);
     Print (L"PostRefresh->ReadyToBoot:      %Lu ns\n", B.PostRefreshToReadyToBootNs);

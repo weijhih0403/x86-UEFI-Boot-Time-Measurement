@@ -320,38 +320,53 @@ BdBootTimePage (
   BOOLEAN                ReadyReached;
   BOOLEAN                EbsReached;
 
+  /*
+    畫面版面對齊互動截圖：
+      說明 → [ Phase intervals ] → [ BDS breakdown ] → [ Hotspot ]
+    資料仍優先走 BootTimeMeasurement Protocol，找不到再讀 NVRAM。
+  */
   BdPageBufferReset (&Buf);
-  BdPageBufferAdd (&Buf, L"  Prefer BootTimeMeasurement Protocol (this boot live).");
-  BdPageBufferAdd (&Buf, L"  NVRAM fallback may be a previous boot if Protocol missing.");
+  BdPageBufferAdd (&Buf, L"  NOTE: LoadPath is measured at this app entry (this boot).");
+  BdPageBufferAdd (&Buf, L"  EBS intervals: this boot if Dump called EBS; else show");
+  BdPageBufferAdd (&Buf, L"  BootTimeLastCompleteSummary from last complete boot.");
   BdPageBufferAdd (&Buf, L"");
-  BdPageBufferAdd (&Buf, L"  Profiler Entry = BootTimeProfilerDxe start (NOT power-on).");
-  BdPageBufferAdd (&Buf, L"  Interactive mode does not call ExitBootServices;");
-  BdPageBufferAdd (&Buf, L"  EBS stays Not reached here. Use BootTimeDump for EBS.");
+  BdPageBufferAdd (&Buf, L"  Profiler Entry = BootTimeProfilerDxe start (NOT power-on,");
+  BdPageBufferAdd (&Buf, L"  NOT DXE phase start).");
   BdPageBufferAdd (&Buf, L"");
 
   Status = BdLoadSummary (&Summary, Err, ARRAY_SIZE (Err), &SummaryFromProto);
   if (EFI_ERROR (Status)) {
-    // 讀取或驗證失敗：把原因顯示在頁面上，而不是讓程式當掉。
     BdPageBufferAdd (&Buf, L"[ BootTimeSummary ]");
     BdPageBufferAdd (&Buf, L"  %s", Err);
   } else {
-    //
-    // Reserved0 欄位在這裡被當成「旗標 (flags) 位元組」使用：
-    // 每個 bit 代表一個階段「有沒有走到」。
-    // 用 & (bitwise AND) 加上遮罩常數就能取出特定 bit，
-    // != 0 表示該 bit 為 1。這是 C 裡常見的「位元旗標」技巧（跟 O_RDONLY | O_CREAT 類似的概念）。
-    //
+    BOOT_TIME_SUMMARY  LastComplete;
+    UINTN              LastSize;
+    UINT32             LastAttr;
+    BOOLEAN            HaveLastEbs;
+
     EndReached   = (BOOLEAN)((Summary.Reserved0 & BOOT_TIME_PHASE_END_OF_DXE) != 0);
     ReadyReached = (BOOLEAN)((Summary.Reserved0 & BOOT_TIME_PHASE_READY_TO_BOOT) != 0);
     EbsReached   = (BOOLEAN)((Summary.Reserved0 & BOOT_TIME_PHASE_EXIT_BOOT_SERVICES) != 0);
+    (VOID)SummaryFromProto;
 
-    BdPageBufferAdd (
-      &Buf,
-      L"[ Phase intervals ]  source=%s",
-      SummaryFromProto ? L"Protocol" : L"NVRAM"
-      );
-    // 以下四行：每一行顯示一段「從 A 階段到 B 階段」的耗時。
-    // 只有「起點和終點兩個階段都走到」時，這段時間才有意義，所以第四個參數用 && 組合條件。
+    HaveLastEbs = FALSE;
+    LastSize    = sizeof (LastComplete);
+    Status      = gRT->GetVariable (
+                         BOOT_TIME_LAST_COMPLETE_SUMMARY_VAR_NAME,
+                         &gBootTimeOptPkgVariableGuid,
+                         &LastAttr,
+                         &LastSize,
+                         &LastComplete
+                         );
+    if (!EFI_ERROR (Status) &&
+        (LastSize >= sizeof (LastComplete)) &&
+        (LastComplete.Signature == BOOT_TIME_SUMMARY_SIGNATURE) &&
+        ((LastComplete.Reserved0 & BOOT_TIME_PHASE_EXIT_BOOT_SERVICES) != 0))
+    {
+      HaveLastEbs = TRUE;
+    }
+
+    BdPageBufferAdd (&Buf, L"[ Phase intervals ]");
     BdAddMsOrNotReached (
       &Buf,
       L"Profiler Entry -> EndOfDxe",
@@ -364,19 +379,51 @@ BdBootTimePage (
       Summary.DeltaEndOfDxeToReadyToBootNs,
       (BOOLEAN)(EndReached && ReadyReached)
       );
-    BdAddMsOrNotReached (
-      &Buf,
-      L"ReadyToBoot -> ExitBootServices",
-      Summary.DeltaReadyToBootToExitBootServicesNs,
-      (BOOLEAN)(ReadyReached && EbsReached)
-      );
-    BdAddMsOrNotReached (
-      &Buf,
-      L"Profiler Entry -> ExitBootServices",
-      Summary.DeltaEntryToExitBootServicesNs,
-      EbsReached
-      );
-    // 三元運算子 ? : 把 TRUE/FALSE 轉成 1/0 方便印出。
+
+    if (EbsReached) {
+      BdAddMsOrNotReached (
+        &Buf,
+        L"ReadyToBoot -> ExitBootServices",
+        Summary.DeltaReadyToBootToExitBootServicesNs,
+        TRUE
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"Profiler Entry -> ExitBootServices",
+        Summary.DeltaEntryToExitBootServicesNs,
+        TRUE
+        );
+      BdPageBufferAdd (&Buf, L"  EBS source: this boot");
+    } else if (HaveLastEbs) {
+      BdAddMsOrNotReached (
+        &Buf,
+        L"ReadyToBoot -> ExitBootServices",
+        LastComplete.DeltaReadyToBootToExitBootServicesNs,
+        TRUE
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"Profiler Entry -> ExitBootServices",
+        LastComplete.DeltaEntryToExitBootServicesNs,
+        TRUE
+        );
+      BdPageBufferAdd (&Buf, L"  EBS source: last complete boot (NVRAM)");
+    } else {
+      BdAddMsOrNotReached (
+        &Buf,
+        L"ReadyToBoot -> ExitBootServices",
+        0,
+        FALSE
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"Profiler Entry -> ExitBootServices",
+        0,
+        FALSE
+        );
+      BdPageBufferAdd (&Buf, L"  EBS source: none yet (run BootTimeDump once)");
+    }
+
     BdPageBufferAdd (
       &Buf,
       L"  Flags  EndOfDxe=%u ReadyToBoot=%u ExitBootServices=%u",
@@ -384,7 +431,6 @@ BdBootTimePage (
       ReadyReached ? 1 : 0,
       EbsReached ? 1 : 0
       );
-    // %04x：16 進位、補 0 到 4 位，例如 Boot0001。
     BdPageBufferAdd (&Buf, L"  LastBootCurrent          Boot%04x", Summary.LastBootCurrent);
   }
 
@@ -426,18 +472,43 @@ BdBootTimePage (
       }
     }
 
-    BdPageBufferAdd (
-      &Buf,
-      L"  source=%s",
-      BdsFromProto ? L"Protocol" : L"NVRAM"
-      );
+    (VOID)BdsFromProto;
     {
-      // 下面每一項都用 Bds.Flags 的對應 bit 判斷該細項「是否有被量測到」。
       BdAddMsOrNotReached (
         &Buf,
         L"PreConnect (EoD->Connect)",
         Bds.PreConnectNs,
         (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_CONNECT) != 0)
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"  ConsolePrep",
+        Bds.ConsolePrepNs,
+        (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_PRECONNECT_DETAIL) != 0)
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"  Logo",
+        Bds.LogoNs,
+        (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_PRECONNECT_DETAIL) != 0)
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"  PciAcpi",
+        Bds.PciAcpiNs,
+        (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_PRECONNECT_DETAIL) != 0)
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"  BootOrder",
+        Bds.BootOrderNs,
+        (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_PRECONNECT_DETAIL) != 0)
+        );
+      BdAddMsOrNotReached (
+        &Buf,
+        L"  PreConnectOther",
+        Bds.PreConnectOtherNs,
+        (BOOLEAN)((Bds.Flags & BOOT_TIME_BDS_FLAG_PRECONNECT_DETAIL) != 0)
         );
       BdAddMsOrNotReached (
         &Buf,
@@ -484,11 +555,7 @@ AfterBds:
       SourceLabel = L"Unknown source";
     }
 
-    BdPageBufferAdd (
-      &Buf,
-      L"  Transport: %s",
-      HotspotFromProto ? L"Protocol" : L"NVRAM"
-      );
+    (VOID)HotspotFromProto;
     BdPageBufferAdd (&Buf, L"  Source: %s", SourceLabel);
     BdPageBufferAdd (&Buf, L"  GaugeEntryCount=%u  Count=%u", Hotspot.GaugeEntryCount, Hotspot.Count);
 
