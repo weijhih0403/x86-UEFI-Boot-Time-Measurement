@@ -1,6 +1,6 @@
 # x86 UEFI Boot-Time Measurement
 
-在 EDK II／OVMF 上量測 UEFI 韌體開機時間，並比較兩組設定的差異。本專案只保留新增或修改的程式碼，使用前需要整合至完整的 EDK II 專案，再以 QEMU 建置與執行。
+在 EDK II／OVMF 上量測 UEFI 韌體開機時間。本專案只保留新增或修改的程式碼，使用前需要整合至完整的 EDK II 專案，再以 QEMU 建置與執行。
 
 **這個專案在做什麼：** 在 DXE／BDS 階段記錄各段開機時間、輸出 CSV、重複開機做統計，並可用文字選單查看結果。
 
